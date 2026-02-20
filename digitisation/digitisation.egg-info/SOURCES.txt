@@ -1,0 +1,5 @@
+setup.py
+digitisation.egg-info/PKG-INFO
+digitisation.egg-info/SOURCES.txt
+digitisation.egg-info/dependency_links.txt
+digitisation.egg-info/top_level.txt

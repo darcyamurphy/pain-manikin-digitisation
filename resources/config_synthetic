@@ -1,0 +1,62 @@
+[DEFAULT]
+RawDir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/raw_jpgs
+
+[RESOURCES]
+AlignmentTemplate = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/template.pdf
+PixelTemplate = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/both_template.png
+CroppedTemplate = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/template_image.png
+SectionsDir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/widespreadpain_sections
+
+[OUTPUTS]
+OutputDir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/output
+ImgsDir = images
+MaskedDir = tmp/masked
+RealignedDir = tmp/realigned
+TempDir = tmp
+DebugDir = tmp/debug
+VisualisationsDir = vis
+PainRegionsDir = pain_regions
+
+[DATA]
+DataDir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/datafiles
+FilenameMap = filenames_1.csv
+SectionsLog = sections_20_fixed.csv
+AlignmentLog = alignment_log_1.csv
+
+[INPUTS]
+# specify dirs to use when reading in data if different to OUTPUTS
+
+
+[MANIKINAREA]
+LeftUpper = 516, 975
+RightLower = 2253, 2696
+
+[DISPLAYAREA]
+LeftUpper = 1750, 0
+RightLower = 2550, 350
+
+[JACCARD]
+DirA = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/output_pdf/pain_regions
+DirB = //home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/manual_pixel_maps_masked
+LogFile = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/jaccard_log_scan_v_manual.csv
+
+[EXTENT]
+Dir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/manual_pixel_maps_masked
+LogFile = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/extent_log_manual.csv
+Template = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/both_template.png
+CompareA = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/extent_log_manual.csv
+CompareB = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/extent_log_photo.csv
+
+[ADVANCED]
+BackgroundColourLowerBound = 145, 145, 145
+BackgroundColourUpperBound = 255, 255, 255
+ErosionSize = 3
+MinPixelsPerSection = 20
+LowCannyThreshold = 100
+HighCannyThreshold = 200
+ClusteringThreshold = 40
+
+[GUI]
+ResumeIndexFile = resume_index.config
+LogFile = log_filenames.csv
+SourceFilenames = source_files.csv

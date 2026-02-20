@@ -1,0 +1,62 @@
+[DEFAULT]
+RawDir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/pdfs
+
+[RESOURCES]
+AlignmentTemplate = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/template.pdf
+PixelTemplate = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/both_template.png
+CroppedTemplate = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/template_image.png
+SectionsDir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/widespreadpain_sections
+
+[OUTPUTS]
+OutputDir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/output_pdf
+ImgsDir = images
+MaskedDir = tmp/masked
+RealignedDir = tmp/realigned
+TempDir = tmp
+DebugDir = tmp/debug
+VisualisationsDir = vis
+PainRegionsDir = pain_regions
+
+[DATA]
+DataDir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/datafiles_pdf
+FilenameMap = filenames_1.csv
+SectionsLog = sections_20_fixed.csv
+AlignmentLog = alignment_log_1.csv
+
+[INPUTS]
+# specify dirs to use when reading in data if different to OUTPUTS
+
+
+[MANIKINAREA]
+LeftUpper = 516, 975
+RightLower = 2253, 2696
+
+[DISPLAYAREA]
+LeftUpper = 1750, 0
+RightLower = 2550, 350
+
+[JACCARD]
+DirA = /home/j68000dm/Documents/code/polymyalgia-analysis/pilot/darcy/b
+DirB = //home/j68000dm/Documents/code/polymyalgia-analysis/data/output/pain_regions
+LogFile = /home/j68000dm/Documents/code/polymyalgia-analysis/pilot/jaccard_log_b_auto10.csv
+
+[EXTENT]
+Dir = /home/j68000dm/Documents/code/polymyalgia-analysis/pilot/darcy/a
+LogFile = /home/j68000dm/Documents/code/polymyalgia-analysis/pilot/extent_log_a.csv
+Template = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/both_template.png
+CompareA = /home/j68000dm/Documents/code/polymyalgia-analysis/pilot/extent_log_a.csv
+CompareB = /home/j68000dm/Documents/code/polymyalgia-analysis/pilot/extent_log_b.csv
+
+[ADVANCED]
+BackgroundColourLowerBound = 250, 250, 250
+BackgroundColourUpperBound = 255, 255, 255
+ErosionSize = 3
+MinPixelsPerSection = 20
+LowCannyThreshold = 100
+HighCannyThreshold = 200
+ClusteringThreshold = 40
+
+[GUI]
+ResumeIndexFile = resume_index.config
+LogFile = log_filenames.csv
+SourceFilenames = source_files.csv

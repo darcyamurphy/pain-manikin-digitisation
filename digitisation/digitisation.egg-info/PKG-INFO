@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: digitisation
+Version: 1.0.0
+Summary: Digitise paper pain manikins.
+Author: Darcy Murphy
+Author-email: darcyamurphy@proton.me
+Dynamic: author
+Dynamic: author-email
+Dynamic: summary
