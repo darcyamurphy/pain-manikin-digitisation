@@ -159,21 +159,20 @@ def align_images(image, template, debug=False):
     (keypoints_a, descriptors_a) = sift.detectAndCompute(image_gray, None)
     (keypoints_b, descriptors_b) = sift.detectAndCompute(template_gray, None)
 
-    # match the features
-    bf = cv2.BFMatcher()
+    bf = cv2.BFMatcher(normType=cv2.NORM_L1)
     matches = bf.knnMatch(descriptors_a, descriptors_b, k=2)
+
+    # ratio test
     good = []
     for m,n in matches:
         if m.distance < 0.75*n.distance:
             good.append(m)
     matches = good
 
-    # check to see if we should visualize the matched keypoints
     if debug:
-        matchedVis = cv2.drawMatches(image, keypoints_a, template, keypoints_b, matches, None)
-        matchedVis = imutils.resize(matchedVis, width=1000)
-        cv2.imshow("Matched Keypoints", matchedVis)
-        cv2.waitKey(0)
+        matched_vis = cv2.drawMatches(image, keypoints_a, template, keypoints_b, matches, None)
+    else:
+        matched_vis = None
 
     matched_points_a = np.zeros((len(matches), 2), dtype="float")
     matched_points_b = np.zeros((len(matches), 2), dtype="float")
@@ -186,14 +185,14 @@ def align_images(image, template, debug=False):
         matched_points_b[i] = keypoints_b[m.trainIdx].pt
 
     # compute the homography matrix between the two sets of matched points
-    (homography_matrix, mask) = cv2.findHomography(matched_points_a, matched_points_b, method=cv2.RANSAC)
+    (homography_matrix, mask) = cv2.findHomography(matched_points_a, matched_points_b, method=cv2.RANSAC, ransacReprojThreshold=10)
 
     # use the homography matrix to align the images
     (h, w) = template.shape[:2]
     aligned = cv2.warpPerspective(image, homography_matrix,  (w, h), borderMode=cv2.BORDER_REPLICATE)
 
     # return the aligned image
-    return aligned
+    return aligned, matched_vis
 
 def get_template_mask(image_path: str, hsv_lower: tuple[int, int, int], hsv_upper: tuple[int, int, int], erosion_size: int):
     src_img = cv2.imread(image_path)
@@ -254,7 +253,7 @@ def apply_preprocessing_filters(input_img):
     :param input_img: aligned image with template mask pixels already removed
     :return: image with filters applied
     """
-    kernel = np.ones((1, 1), np.uint8)
+    kernel = np.ones((1,5), np.uint8)
     opening = cv2.morphologyEx(input_img, cv2.MORPH_OPEN, kernel)
     return opening
 
@@ -370,8 +369,11 @@ def hierarchical_clustering(contours, threshold: int):
     :param threshold: The threshold to use for clustering - higher threshold means bigger clusters.
     :return: The list of convex hulls drawn around each cluster.
     """
+
     distance_matrix = fast_distance_matrix(contours)
     condensed = sdistance.squareform(distance_matrix)
+    if len(condensed) == 0:
+        return []
     linked = hcluster.linkage(condensed)
     clusters = hcluster.fcluster(linked, threshold, criterion='distance')
     contours_dict = {}
