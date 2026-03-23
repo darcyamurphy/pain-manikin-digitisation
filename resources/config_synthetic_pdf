@@ -37,7 +37,7 @@ RightLower = 2550, 350
 
 [JACCARD]
 DirA = ./data/synthetic/output_pdf/pain_regions
-DirB = ./data/output/manual_regions
+DirB = ./data/synthetic/manual_pixel_maps_masked
 LogFile = ./data/output/datafiles_pdf/jaccard_log_a_vs_b.csv
 
 [EXTENT]
