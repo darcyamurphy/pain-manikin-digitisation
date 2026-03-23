@@ -179,7 +179,7 @@ def create_temp_aligned_image(source_file: str, temp_dir: str, template_image) -
     tmp_raw_path = file_to_png(source_file, temp_dir)
     # align image
     full_image = cv2.imread(tmp_raw_path)
-    aligned_image = image_processing.align_images(full_image, template_image)
+    aligned_image, _ = image_processing.align_images(full_image, template_image)
     path_stem = Path(source_file).stem
     tmp_aligned_path = os.path.join(temp_dir, f'{path_stem}-aligned.png')
     success = cv2.imwrite(tmp_aligned_path, aligned_image)
@@ -196,7 +196,7 @@ def align_image(source_image: str, output_path: str, template_image) -> str | No
     :return:
     """
     full_image = cv2.imread(source_image)
-    aligned_image = image_processing.align_images(full_image, template_image)
+    aligned_image, _ = image_processing.align_images(full_image, template_image)
     success = cv2.imwrite(output_path, aligned_image)
     if not success:
         return None

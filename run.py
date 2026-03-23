@@ -216,7 +216,7 @@ def run():
             for f in filenames:
                 filenames_map[f] = f'{Path(f).stem}.png'
         # todo use filename from cropped template for the template image that is generated
-        main.standard_alignment(pdf_dir, img_dir, temp_dir, data_dir,
+        main.standard_alignment(img_dir, temp_dir, data_dir,
                                 filenames_map, alignment_template, cropped_template,
                                 os.path.join(data_dir, alignment_log),
                                 left_upper, right_lower, hsv_lower, hsv_upper)

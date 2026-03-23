@@ -249,7 +249,7 @@ def make_img_of_colour(shape: tuple[int, int], colour: tuple[int, int, int]) -> 
 
 def apply_preprocessing_filters(input_img):
     """
-    Takes input image and applies contrast filters to remove some noise
+    Takes input image and applies morphological opening to remove some noise
     :param input_img: aligned image with template mask pixels already removed
     :return: image with filters applied
     """

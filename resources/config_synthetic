@@ -1,14 +1,14 @@
 [DEFAULT]
-RawDir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/raw_jpgs
+RawDir = ./data/synthetic/raw_jps
 
 [RESOURCES]
-AlignmentTemplate = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/template.pdf
-PixelTemplate = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/both_template.png
-CroppedTemplate = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/template_image.png
-SectionsDir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/widespreadpain_sections
+AlignmentTemplate = ./data/resources/template.pdf
+PixelTemplate = ./data/resources/both_template.png
+CroppedTemplate = ./data/resources/template_image.png
+SectionsDir = ./data/resources/widespreadpain_sections
 
 [OUTPUTS]
-OutputDir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/output
+OutputDir = ./data/synthetic/output_jpgs
 ImgsDir = images
 MaskedDir = tmp/masked
 RealignedDir = tmp/realigned
@@ -18,10 +18,10 @@ VisualisationsDir = vis
 PainRegionsDir = pain_regions
 
 [DATA]
-DataDir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/datafiles
-FilenameMap = filenames_1.csv
-SectionsLog = sections_20_fixed.csv
-AlignmentLog = alignment_log_1.csv
+DataDir = ./data/synthetic/datafiles_jpgs
+FilenameMap = filenames.csv
+SectionsLog = body_region_annotations.csv
+AlignmentLog = alignment_log.csv
 
 [INPUTS]
 # specify dirs to use when reading in data if different to OUTPUTS
@@ -36,19 +36,19 @@ LeftUpper = 1750, 0
 RightLower = 2550, 350
 
 [JACCARD]
-DirA = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/output_pdf/pain_regions
-DirB = //home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/manual_pixel_maps_masked
-LogFile = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/jaccard_log_scan_v_manual.csv
+DirA = ./data/synthetic/output_jpgs/pain_regions
+DirB = ./data/synthetic/manual_pixel_maps_masked
+LogFile = ./data/output/datafiles_jpgs/jaccard_log_a_vs_b.csv
 
 [EXTENT]
-Dir = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/manual_pixel_maps_masked
-LogFile = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/extent_log_manual.csv
-Template = /home/j68000dm/Documents/code/polymyalgia-analysis/data/resources/both_template.png
-CompareA = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/extent_log_manual.csv
-CompareB = /home/j68000dm/Documents/code/polymyalgia-analysis/data/synthetic/extent_log_photo.csv
+Dir = ./data/synthetic/output_jpgs/pain_regions
+LogFile = ./data/synthetic/datafiles_jpgs/extent_log_a.csv
+Template = ./data/resources/both_template.png
+CompareA =./data/synthetic/datafiles_jpgs/extent_log_a.csv
+CompareB = ./data/synthetic/datafiles_jpgs/extent_log_b.csv
 
 [ADVANCED]
-BackgroundColourLowerBound = 145, 145, 145
+BackgroundColourLowerBound = 250, 250, 250
 BackgroundColourUpperBound = 255, 255, 255
 ErosionSize = 3
 MinPixelsPerSection = 20
