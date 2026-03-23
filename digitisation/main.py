@@ -19,7 +19,7 @@ def create_template(data_dir: str, temp_dir: str, alignment_template: str, cropp
 
     return template_png, cv2_image_section
 
-def standard_alignment(input_dir: str, img_dir: str, temp_dir: str, data_dir: str,
+def standard_alignment(img_dir: str, temp_dir: str, data_dir: str,
                        filenames_map: dict, alignment_template: str, cropped_template_path: str,
                        alignment_log_path: str,
                        left_upper: tuple[int, int], right_lower: tuple[int, int],
@@ -28,7 +28,6 @@ def standard_alignment(input_dir: str, img_dir: str, temp_dir: str, data_dir: st
     Align and crop every image named in filename map which is present in input_dir to the alignment template.
     Also outputs a cropped alignment template consisting of the region specified by the left_upper and right_lower
     coordinates. This should contain just the manikin and not extras like preamble text.
-    :param input_dir: The directory that images from filename map are saved in
     :param img_dir: The directory to save aligned images to
     :param temp_dir: The temp directory to save interim files to
     :param data_dir: The directory that template files should be saved to
@@ -58,14 +57,13 @@ def standard_alignment(input_dir: str, img_dir: str, temp_dir: str, data_dir: st
     data_io.create_alignment_log(alignment_log_path)
 
     for f in filenames_map.keys():
-        file_path = os.path.join(input_dir, f)
-        if not os.path.exists(file_path):
-            print(f'{file_path} not found')
+        if not os.path.exists(f):
+            print(f'{f} not found')
             continue
         else:
-            print(f'converting {file_path}')
+            print(f'converting {f}')
         # first alignment pass
-        tmp_aligned_path = data_io.create_temp_aligned_image(file_path, temp_dir, full_template)
+        tmp_aligned_path = data_io.create_temp_aligned_image(f, temp_dir, full_template)
         # crop to manikin section
         cropped_manikin_image = data_io.load_image_section(tmp_aligned_path, left_upper, right_lower)
         cropped_manikin_image.save(tmp_aligned_path)
