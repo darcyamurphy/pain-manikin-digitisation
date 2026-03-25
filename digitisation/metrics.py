@@ -30,7 +30,7 @@ def get_alignment_stats(files: list[str], filename_match : str | None = None):
     std_dev = full_df['alignment'].std()
     mean = full_df['alignment'].mean()
     print(f'mean alignment score: {round(mean, 4)}. standard deviation of alignment score: {round(std_dev, 4)}\n'
-          f'n={len(full_df)} (excluded {original_count})')
+          f'n={len(full_df)} (excluded {len(full_df)-original_count})')
 
 def regions_cohens_kappa(rater_a_files: list[str], rater_b_files: list[str], file_prefix: str):
     """
