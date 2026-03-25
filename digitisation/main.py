@@ -198,7 +198,8 @@ def preprocessing_demo(template_file: str, background_lower: tuple[int, int, int
 
 def preprocess_dir(input_dir: str, output_dir: str, template_file: str,
                    background_lower: tuple[int, int, int],
-                   background_upper: tuple[int, int, int], erosion_size: int):
+                   background_upper: tuple[int, int, int], erosion_size: int,
+                   alpha: float = 1.0, beta: int = 0):
     """
     Preprocess images in a specified directory to remove template lines and isolate marks made by participants.
     :param input_dir: Directory of aligned pain drawings
@@ -207,6 +208,8 @@ def preprocess_dir(input_dir: str, output_dir: str, template_file: str,
     :param background_lower: HSV lower bound for background colour in template
     :param background_upper: HSV upper bound for background colour in template
     :param erosion_size: How much to expand template lines to make sure lines fully overlap manikin outline in aligned images
+    :param alpha: Contrast adjustment
+    :param beta: brightness adjustment
     :return:
     """
     start = time.time()
@@ -225,7 +228,7 @@ def preprocess_dir(input_dir: str, output_dir: str, template_file: str,
         img = image_processing.remove_template_pixels(img, background_upper, template_mask)
 
         # apply filters to remove some noise
-        img = image_processing.apply_preprocessing_filters(img)
+        img = image_processing.apply_preprocessing_filters(img, alpha, beta)
 
         img = image_processing.remove_light_pixels(img, background_lower, background_upper)
 
