@@ -120,28 +120,6 @@ def jaccard_index(a: set[tuple[int, int]], b: set[tuple[int, int]]) -> float:
     # size of intersection / size of union
     return len(a&b)/len(a|b)
 
-def calculate_pairwise_differences(drawings_a: dict[str, set[tuple[int, int]]],
-                                   drawings_b: dict[str, set[tuple[int, int]]],
-                                   filename: str) -> dict[str, float] | None:
-    if not len(drawings_a) == len(drawings_b):
-        print("File lists mismatched length")
-        return None
-
-    with open(filename, 'w') as f:
-        f.write('g1,dist\n')
-        pairwise_distances = {}
-        for d in drawings_a.keys():
-            if len(drawings_a[d]) == 0:
-                print(f'File {d} contains empty manikin.')
-                continue
-            if d not in drawings_b:
-                print(f'File {d} missing from second list.')
-                continue
-
-            pairwise_distances[d] = jaccard_index(drawings_a[d], drawings_b[d])
-            f.write(f'{d},{pairwise_distances[d]}\n')
-    return pairwise_distances
-
 def build_coord_set(coords: list[tuple[int, int]], downscale) -> set[tuple[int, int]]:
     coord_set = set()
     for x,y in coords:
@@ -173,13 +151,31 @@ def calculate_jaccard_indexes(files_a: list[str], files_b: list[str], datafile: 
     examples_a = get_file_list_coords(files_a, downscale)
     examples_b = get_file_list_coords(files_b, downscale)
 
-    calculate_pairwise_differences(examples_a, examples_b, datafile)
+    if not len(examples_a) == len(examples_b):
+        print("File lists mismatched length")
+        return None
+
+    with open(datafile, 'w') as f:
+        f.write('filename,jaccard\n')
+        pairwise_distances = {}
+        for d in examples_a.keys():
+            if len(examples_a[d]) == 0:
+                print(f'File {d} contains empty manikin.')
+                continue
+            if d not in examples_b:
+                print(f'File {d} missing from second list.')
+                continue
+
+            pairwise_distances[d] = jaccard_index(examples_a[d], examples_b[d])
+            f.write(f'{d},{pairwise_distances[d]}\n')
+    return None
+
 
 def analyse_jaccard_indexes(datafile: str):
     pairwise_distances = pd.read_csv(datafile)
 
-    std_dev = pairwise_distances['dist'].std()
-    mean = pairwise_distances['dist'].mean()
+    std_dev = pairwise_distances['jaccard'].std()
+    mean = pairwise_distances['jaccard'].mean()
     print(f'mean jaccard: {round(mean, 4)}. standard deviation of jaccard: {round(std_dev, 4)}')
 
 def get_pain_extents(files: list[str], template_file: str, datafile: str):
