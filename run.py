@@ -187,6 +187,8 @@ def run():
                         help='Specify a number to resume from when calculating marked sections from a file list. Don\'t '
                              'use when getting file from a directory rather than a list as they may not be in the same'
                              ' order.')
+    parser.add_argument('--alpha', help='Apply contrast filter when preprocessing using this alpha')
+    parser.add_argument('--beta', help='Apply brightness filter when preprocessing using this beta')
     args = parser.parse_args()
 
     config = configparser.ConfigParser()
@@ -250,7 +252,20 @@ def run():
         template_img = get_cropped_template(config)
         img_dir = get_img_dir(config, True)
         output_dir = get_masked_dir(config)
-        main.preprocess_dir(img_dir, output_dir, template_img, lower, upper, erosion)
+        alpha = 1.0
+        beta = 0
+        if args.alpha is not None:
+            try:
+                alpha = float(args.alpha)
+            except ValueError:
+                print(f'{args.alpha} is not a valid alpha value. Must be a float.')
+        if args.beta is not None:
+            try:
+                beta = int(args.beta)
+            except ValueError:
+                print(f'{args.beta} is not a valid beta value. Must be an int')
+
+        main.preprocess_dir(img_dir, output_dir, template_img, lower, upper, erosion, alpha, beta)
 
     if args.sections:
         print('Finding sections')

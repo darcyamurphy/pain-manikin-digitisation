@@ -247,14 +247,22 @@ def make_img_of_colour(shape: tuple[int, int], colour: tuple[int, int, int]) -> 
     background[:] = colour
     return background
 
-def apply_preprocessing_filters(input_img):
+def apply_preprocessing_filters(input_img, alpha: float = 1.0, beta: int = 0):
     """
-    Takes input image and applies morphological opening to remove some noise
+    Takes input image and optionally applies contrast and brightness adjustment using alpha and beta values,
+     (using opencv convertscaleabs, then applies morphological opening to remove some noise. Default alpha and beta
+     values will have no effect. Negative beta values increase brightness, positive beta values reduce brightness.
+     Alpha values above 1 increase contrast. Sensible default values for pain drawings on white paper with some marks
+     which are not being picked up by the edge detection might be alpha = 1.8 and beta = -200.
     :param input_img: aligned image with template mask pixels already removed
+    :param alpha: Contrast adjustment
+    :param beta: brightness adjustment
     :return: image with filters applied
     """
+    # apply contrast filter
+    image = cv2.convertScaleAbs(input_img, alpha=alpha, beta=beta)
     kernel = np.ones((1,5), np.uint8)
-    opening = cv2.morphologyEx(input_img, cv2.MORPH_OPEN, kernel)
+    opening = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
     return opening
 
 def get_alignment_rating(template_path: str, aligned_path: str,
