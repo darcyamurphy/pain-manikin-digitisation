@@ -5,6 +5,9 @@ import math
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy import stats as st
+import cv2
+import numpy as np
+import imutils
 
 def get_full_df(files: list[str]) -> pd.DataFrame:
     dfs = []
@@ -86,7 +89,6 @@ def calculate_jaccard_indexes(files_a: list[str], files_b: list[str], datafile: 
             f.write(f'{d},{pairwise_distances[d]}\n')
     return None
 
-
 def analyse_jaccard_indexes(datafile: str):
     pairwise_distances = pd.read_csv(datafile)
 
@@ -119,6 +121,96 @@ def compare_pain_extents(datafile_a: str, datafile_b: str):
     pain_extents_b = data_io.load_pain_extents(datafile_b)[['filename', 'pixels']]
     result = pd.merge(pain_extents_a, pain_extents_b, on='filename', suffixes=('_a', '_b')).rename(columns={'pixels_a':'a', 'pixels_b': 'b'})
     bland_altman_plot(result)
+
+def is_pixel_good_surface(gt_img, x: int, y: int, tau: int, match_colour: int) -> int:
+    """
+    Check if provided pixel coords are within tau pixels of a pixel of match_colour in gt_img.
+    Checks in a 2tau by 2tau square around the pixel at (x,y), ignoring pixels outside the boundary of the image.
+    :param gt_img:
+    :param x: x coord of pixel to check
+    :param y: y coord of pixel to chek
+    :param tau: allowable distance
+    :param match_colour: value of pixels which are part of the surface
+    :return: match_colour if there is a matching pixel within range, otherwise 0
+    """
+    height, width = gt_img.shape
+    x_lower = max(x-tau, 0)
+    x_upper = min(x+tau, width-1)
+    y_lower = max(y-tau, 0)
+    y_upper = min(y + tau, height-1)
+    for i in range(x_lower, x_upper+1):
+        for j in range(y_lower, y_upper+1):
+            # coordinates are y,x not x,y!
+            if gt_img[j][i] == match_colour:
+                return match_colour
+    return 0
+
+def get_matching_pixel_count(img, match_colour: int) -> int:
+    """
+    Get the number of pixels/cells in img that have the value match_colour. Assumes one colour channel.
+    :param img:
+    :param match_colour:
+    :return:
+    """
+    values, counts = np.unique(img, return_counts=True)
+    result = dict(zip(values, counts))
+    try:
+        count = result[match_colour]
+    except KeyError:
+        count = 0
+    return count
+
+def calculate_dice_surface_distances(files: dict, datafile: str, tau: int, verbose: bool = True):
+    """
+    Calculate dice surface distance between matched pairs of files. Writes results to csv file in location specified
+    by datafile.
+    :param files: Dictionary with keys as file paths to ground truth pixel maps and values as file paths to predicted
+    pixel maps.
+    :param datafile: The output file to save results to.
+    :param tau: maximum acceptable distance in pixels between true surface and predicted surface
+    :param verbose: Output progress to command line
+    :return:
+    """
+    match_colour = 255
+    with open(datafile, 'w') as f:
+        f.write('filename,dsc\n')
+        for k, v in files.items():
+            filename = os.path.basename(k)
+            if verbose:
+                print(f'processing: {filename}')
+            # load ground truth
+            gt_img = cv2.imread(k)
+            gt_img = cv2.cvtColor(gt_img, cv2.COLOR_BGR2GRAY)
+            # load prediction
+            p_img = cv2.imread(v)
+            p_img = cv2.cvtColor(p_img, cv2.COLOR_BGR2GRAY)
+            # nb canny thresholds not super important because the pixel maps should be only two colours with no noise
+            # edge detection on ground truth
+            gt_edges = cv2.Canny(gt_img, 100, 200)
+            matches = np.zeros_like(gt_edges)
+            # edge detection on prediction
+            p_edges = cv2.Canny(p_img, 100, 200)
+            height, width = matches.shape
+            for i_x in range(width):
+                for j_y in range(height):
+                    # coordinates are y,x not x,y!
+                    if p_edges[j_y][i_x] == match_colour:
+                        matches[j_y][i_x] = is_pixel_good_surface(gt_edges, i_x, j_y, tau, match_colour)
+
+            good_pixels = get_matching_pixel_count(matches, match_colour)
+            true_edge_size = get_matching_pixel_count(gt_edges, match_colour)
+            predicted_edge_size = get_matching_pixel_count(p_edges, match_colour)
+            if true_edge_size + predicted_edge_size == 0:
+                # if there are no true edges and we also didn't predict any edges, we were correct
+                # but we can't divide by 0 so we just set dsc to 1 to satisfy the laws of mathematics
+                dsc = 1
+            else:
+                dsc = (2*good_pixels) / (true_edge_size + predicted_edge_size)
+            if verbose:
+                print(f'dsc: {dsc}')
+            # todo save debug image
+
+            f.write(f'{filename},{dsc}\n')
 
 def bland_altman_plot(df: pd.DataFrame):
     """
