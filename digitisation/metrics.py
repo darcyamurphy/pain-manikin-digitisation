@@ -89,12 +89,13 @@ def calculate_jaccard_indexes(files_a: list[str], files_b: list[str], datafile: 
             f.write(f'{d},{pairwise_distances[d]}\n')
     return None
 
-def analyse_jaccard_indexes(datafile: str):
-    pairwise_distances = pd.read_csv(datafile)
+def get_file_summary_stats(datafile: str, column: str):
+    df = pd.read_csv(datafile)
 
-    std_dev = pairwise_distances['jaccard'].std()
-    mean = pairwise_distances['jaccard'].mean()
-    print(f'mean jaccard: {round(mean, 4)}. standard deviation of jaccard: {round(std_dev, 4)}')
+    std_dev = df[column].std()
+    mean = df[column].mean()
+    print(f'{column} mean : {round(mean, 4)}. standard deviation: {round(std_dev, 4)}.'
+          f' range: ({df[column].min()} - {df[column].max()})')
 
 def get_pain_extents(files: list[str], template_file: str, datafile: str):
     # pain extent is % of available area so need digitised area and template
