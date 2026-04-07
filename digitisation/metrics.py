@@ -50,7 +50,7 @@ def get_file_list_coords(files: list[str], downscale: int=10):
     all_examples = {}
     for f in files:
         pixels, size = data_io.get_pixels(f)
-        coords = data_io.get_coords(pixels, [(255, 0, 0), (255, 0, 0, 255)], size[1])
+        coords = data_io.get_coords(pixels, [(255, 0, 0), (255, 0, 0, 255)], size[0])
         coord_set = build_coord_set(coords, downscale)
         filename = os.path.basename(f)
         all_examples[filename] = coord_set
@@ -154,7 +154,7 @@ def get_pain_extents(files: list[str], template_file: str, datafile: str):
     # pain extent is % of available area so need digitised area and template
     # then just divide num pixels marked by total available pixels
     template_pixels, template_size = data_io.get_pixels(template_file)
-    template_coords = data_io.get_coords(template_pixels, [(255, 0, 0), (255, 0, 0, 255)], template_size[1])
+    template_coords = data_io.get_coords(template_pixels, [(255, 0, 0), (255, 0, 0, 255)], template_size[0])
     available_pixels = len(template_coords)
 
     with open(datafile, 'w') as df:
@@ -162,7 +162,7 @@ def get_pain_extents(files: list[str], template_file: str, datafile: str):
         all_areas = {}
         for f in files:
             pixels, size = data_io.get_pixels(f)
-            coords = data_io.get_coords(pixels, [(255, 0, 0), (255, 0, 0, 255)], size[1])
+            coords = data_io.get_coords(pixels, [(255, 0, 0), (255, 0, 0, 255)], size[0])
             filename = os.path.basename(f)
             marked_pixels = len(coords)
             all_areas[filename] = marked_pixels
