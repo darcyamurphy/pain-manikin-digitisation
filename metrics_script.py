@@ -6,5 +6,8 @@ if __name__ == '__main__':
     metrics.get_alignment_stats(['data/synthetic/datafiles_pdf/alignment_log.csv'])
 
     matched_files = data_io.get_matching_files_dict('data/synthetic/manual_pixel_maps_masked', 'data/synthetic/output_pdf/pain_regions', '.png')
-    metrics.calculate_dice_surface_distances(matched_files, 'data/synthetic/datafiles_pdf/dsc_tau5.csv', 5)
+    metrics.calculate_dice_surface_distances(matched_files, 'data/synthetic/datafiles_pdf/dsc_tau5.csv', 5, verbose=False)
     metrics.get_file_summary_stats('data/synthetic/datafiles_pdf/dsc_tau5.csv', 'dsc')
+
+    metrics.calculate_normalised_surface_distances(matched_files, 'data/synthetic/datafiles_pdf/nsd_tau5.csv', 5, verbose=False)
+    metrics.get_file_summary_stats('data/synthetic/datafiles_pdf/nsd_tau5.csv', 'nsd')

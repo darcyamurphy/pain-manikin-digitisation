@@ -95,7 +95,7 @@ def get_file_summary_stats(datafile: str, column: str):
     std_dev = df[column].std()
     mean = df[column].mean()
     print(f'{column} mean : {round(mean, 4)}. standard deviation: {round(std_dev, 4)}.'
-          f' range: ({df[column].min()} - {df[column].max()})')
+          f' range: ({round(df[column].min(), 4)} - {round(df[column].max(), 4)})')
 
 def get_pain_extents(files: list[str], template_file: str, datafile: str):
     # pain extent is % of available area so need digitised area and template
@@ -123,7 +123,7 @@ def compare_pain_extents(datafile_a: str, datafile_b: str):
     result = pd.merge(pain_extents_a, pain_extents_b, on='filename', suffixes=('_a', '_b')).rename(columns={'pixels_a':'a', 'pixels_b': 'b'})
     bland_altman_plot(result)
 
-def is_pixel_good_surface(gt_img, x: int, y: int, tau: int, match_colour: int) -> int:
+def does_pixel_match_surface(gt_img, x: int, y: int, tau: int, match_colour: int) -> int:
     """
     Check if provided pixel coords are within tau pixels of a pixel of match_colour in gt_img.
     Checks in a 2tau by 2tau square around the pixel at (x,y), ignoring pixels outside the boundary of the image.
@@ -196,7 +196,7 @@ def calculate_dice_surface_distances(files: dict, datafile: str, tau: int, verbo
                 for j_y in range(height):
                     # coordinates are y,x not x,y!
                     if p_edges[j_y][i_x] == match_colour:
-                        matches[j_y][i_x] = is_pixel_good_surface(gt_edges, i_x, j_y, tau, match_colour)
+                        matches[j_y][i_x] = does_pixel_match_surface(gt_edges, i_x, j_y, tau, match_colour)
 
             good_pixels = get_matching_pixel_count(matches, match_colour)
             true_edge_size = get_matching_pixel_count(gt_edges, match_colour)
@@ -212,6 +212,61 @@ def calculate_dice_surface_distances(files: dict, datafile: str, tau: int, verbo
             # todo save debug image
 
             f.write(f'{filename},{dsc}\n')
+
+def calculate_normalised_surface_distances(files: dict, datafile: str, tau: int, verbose: bool = True):
+    """
+    Calculate normalised surface distance between matched pairs of files. Writes results to csv file in location
+     specified by datafile. Normalised surface distance is a symmetric metric so doesn't require one rater to be
+     ground truth.
+    :param files: Dictionary with keys as file paths to rater A pixel maps and values as file paths to rater B
+    pixel maps.
+    :param datafile: The output file to save results to.
+    :param tau: maximum acceptable distance in pixels between boundaries
+    :param verbose: Output progress to command line
+    :return:
+    """
+    match_colour = 255
+    with open(datafile, 'w') as f:
+        f.write('filename,nsd\n')
+        for k, v in files.items():
+            filename = os.path.basename(k)
+            if verbose:
+                print(f'processing: {filename}')
+
+            img_a = cv2.imread(k)
+            img_a = cv2.cvtColor(img_a, cv2.COLOR_BGR2GRAY)
+            # nb canny thresholds not super important because the pixel maps should be only two colours with no noise
+            edges_a = cv2.Canny(img_a, 100, 200)
+            matches_a = np.zeros_like(edges_a)
+
+            img_b = cv2.imread(v)
+            img_b = cv2.cvtColor(img_b, cv2.COLOR_BGR2GRAY)
+            edges_b = cv2.Canny(img_b, 100, 200)
+            matches_b = np.zeros_like(edges_b)
+
+            height, width = matches_a.shape
+            for i_x in range(width):
+                for j_y in range(height):
+                    # coordinates are y,x not x,y!
+                    if edges_b[j_y][i_x] == match_colour:
+                        matches_b[j_y][i_x] = does_pixel_match_surface(edges_a, i_x, j_y, tau, match_colour)
+                    if edges_a[j_y][i_x] == match_colour:
+                        matches_a[j_y][i_x] = does_pixel_match_surface(edges_b, i_x, j_y, tau, match_colour)
+
+            surface_a_match_count = get_matching_pixel_count(matches_a, match_colour)
+            surface_b_match_count = get_matching_pixel_count(matches_b, match_colour)
+            surface_a_size = get_matching_pixel_count(edges_a, match_colour)
+            surface_b_size = get_matching_pixel_count(edges_b, match_colour)
+            if surface_a_size + surface_b_size == 0:
+                # if neither rater drew any edges, they agree perfectly
+                nsd = 1
+            else:
+                nsd = (surface_a_match_count + surface_b_match_count) / (surface_a_size + surface_b_size)
+            if verbose:
+                print(f'nsd: {nsd}')
+            # todo save debug image
+
+            f.write(f'{filename},{nsd}\n')
 
 def bland_altman_plot(df: pd.DataFrame):
     """
