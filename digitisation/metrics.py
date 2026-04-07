@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from scipy import stats as st
 import cv2
 import numpy as np
-import imutils
 
 def get_full_df(files: list[str]) -> pd.DataFrame:
     dfs = []
@@ -57,6 +56,60 @@ def get_file_list_coords(files: list[str], downscale: int=10):
         all_examples[filename] = coord_set
         print(f'file {filename}, {len(coord_set)} coords')
     return all_examples
+
+def get_file_coords(file_path: str, match_colour: int, downscale: int=10, verbose: bool = True):
+    img = cv2.imread(file_path)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    height, width = img.shape
+    coords = []
+    for i in range(width):
+        for j in range(height):
+            if img[j][i] != match_colour:
+                # note that the img array is y,x but we switch to x,y
+                coords.append((i,j))
+
+    coord_set = build_coord_set(coords, downscale)
+    if verbose:
+        print(f'file {file_path}, {len(coord_set)} coords')
+    return coord_set
+
+def calculate_jaccard_indexes_lowmem(files: dict, datafile: str, downscale: int=10, verbose: bool = True):
+    """
+    Calculate jaccard distance between matched pairs of files. Writes results to csv file in location specified
+    by datafile.
+    :param files: Dictionary with keys as file paths to rater a pixel maps and values as file paths to rater b
+    pixel maps.
+    :param datafile: The file path to save results to.
+    :param downscale: Downscale/precision factor. Downscale factor of 10 means each 10x10 square of pixels will
+    be marked as painful if any one pixel in that square is marked as painful.
+    :param verbose: Whether to output progress to command line as files are processed
+    :return:
+    """
+    match_colour = 255
+    with open(datafile, 'w') as f:
+        f.write('filename,jaccard\n')
+        for k, v in files.items():
+            filename = os.path.basename(k)
+            if verbose:
+                print(f'processing: {filename}')
+
+            file_a_coords = get_file_coords(k, match_colour, downscale, verbose)
+            file_b_coords = get_file_coords(v, match_colour, downscale, verbose)
+
+            if len(file_a_coords) == 0:
+                print(f'File {k} contains empty manikin.')
+                # todo record this in file
+                continue
+            elif  len(file_b_coords) == 0:
+                print(f'File {v} contains empty manikin.')
+                #todo record this in file
+                continue
+            else:
+                pairwise_distance = jaccard_index(file_a_coords, file_b_coords)
+                f.write(f'{filename},{pairwise_distance}\n')
+            if verbose:
+                print(f'jaccard: {pairwise_distance}')
+            # todo save debug image
 
 def calculate_jaccard_indexes(files_a: list[str], files_b: list[str], datafile: str, downscale: int = 10):
     """
