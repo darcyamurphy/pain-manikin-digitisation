@@ -57,7 +57,19 @@ def get_file_list_coords(files: list[str], downscale: int=10):
         print(f'file {filename}, {len(coord_set)} coords')
     return all_examples
 
-def get_file_coords(file_path: str, match_colour: int, downscale: int=10, verbose: bool = True):
+def get_file_coords(file_path: str, match_colour: int, downscale: int=10, verbose: bool = True, mask = None):
+    """
+    Get the set of coordinates of the pixels in the specified file which are of match_colour when the image is converted
+    to grayscale. The coordinates are downscaled by the specified downscale factor. So e.g. a 10x10 pixel file would by
+    default have set of 1 coordinates. If a boolean pixel mask is provided, only pixels within the mask area are
+    considered.
+    :param file_path:
+    :param match_colour:
+    :param downscale:
+    :param verbose:
+    :param mask:
+    :return:
+    """
     img = cv2.imread(file_path)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     height, width = img.shape
@@ -65,13 +77,56 @@ def get_file_coords(file_path: str, match_colour: int, downscale: int=10, verbos
     for i in range(width):
         for j in range(height):
             if img[j][i] != match_colour:
-                # note that the img array is y,x but we switch to x,y
-                coords.append((i,j))
+                # only check if pixel allowed by mask when a mask was provided
+                if mask is not None and mask[j][i] or mask is None:
+                    # note that the img array is y,x but we switch to x,y
+                    coords.append((i,j))
 
     coord_set = build_coord_set(coords, downscale)
     if verbose:
         print(f'file {file_path}, {len(coord_set)} coords')
     return coord_set
+
+def per_region_jaccard(rater_a_file: str, rater_b_file: str, region_pixel_maps: list[str], downscale: int=10,
+                       verbose: bool = True) -> dict[str: float]:
+    """
+    Calculate jaccard distance per predefined pain region between a matched pair of files.
+    :param rater_a_file: The pixel map from rater a
+    :param rater_b_file: The pixel map from rater b
+    :param region_pixel_maps: The pixel maps defining each pain region
+    :param downscale: Downscale/precision factor. Downscale factor of 10 means each 10x10 square of pixels will
+    be marked as painful if any one pixel in that square is marked as painful.
+    :param verbose: Whether to output progress to command line as files are processed
+    :return: a dict with the predefined pain region file names as keys and the jaccard index in that pain region
+    as the value
+    """
+
+    marked_sections = {}
+    for s in region_pixel_maps:
+        section_image = cv2.imread(s)
+        section_mask = cv2.inRange(section_image, (0, 0, 255), (0, 0, 255))
+        file_a_coords = get_file_coords(rater_a_file, 255, 10, verbose, section_mask)
+        file_b_coords = get_file_coords(rater_b_file, 255, 10, verbose, section_mask)
+
+        if verbose:
+            print(f'Rater a coords in section {s}: {len(file_a_coords)}')
+            print(f'Rater b coords in section {s}: {len(file_b_coords)}')
+
+        if len(file_a_coords) == 0 and len(file_b_coords) == 0:
+            print(f'both {rater_a_file} and {rater_b_file} contain empty manikins.')
+            pairwise_distance = 1
+        elif len(file_b_coords) == 0:
+            print(f'File {rater_b_file} contains empty manikin.')
+            # todo record this in file
+            continue
+        else:
+            pairwise_distance = jaccard_index(file_a_coords, file_b_coords)
+
+        marked_sections[os.path.basename(s)] = pairwise_distance
+        if verbose:
+            print(f'{s} jaccard: {pairwise_distance}')
+        # todo save debug image
+    return marked_sections
 
 def calculate_jaccard_indexes_lowmem(files: dict, datafile: str, downscale: int=10, verbose: bool = True):
     """
