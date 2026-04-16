@@ -89,7 +89,7 @@ def get_file_coords(file_path: str, match_colour: int, downscale: int=10, verbos
     return coord_set
 
 def per_region_jaccard(rater_a_file: str, rater_b_file: str, region_pixel_maps: list[str], downscale: int=10,
-                       verbose: bool = True) -> dict[str: float]:
+                       verbose: bool = True, exclude_empty: bool=True) -> dict[str: float]:
     """
     Calculate jaccard distance per predefined pain region between a matched pair of files.
     :param rater_a_file: The pixel map from rater a
@@ -98,6 +98,8 @@ def per_region_jaccard(rater_a_file: str, rater_b_file: str, region_pixel_maps: 
     :param downscale: Downscale/precision factor. Downscale factor of 10 means each 10x10 square of pixels will
     be marked as painful if any one pixel in that square is marked as painful.
     :param verbose: Whether to output progress to command line as files are processed
+    :param exclude_empty: When True, if both pain drawings have no marks in an area then no entry will be recorded
+    for that area
     :return: a dict with the predefined pain region file names as keys and the jaccard index in that pain region
     as the value
     """
@@ -116,17 +118,22 @@ def per_region_jaccard(rater_a_file: str, rater_b_file: str, region_pixel_maps: 
         if len(file_a_coords) == 0 and len(file_b_coords) == 0:
             if verbose:
                 print(f'both {rater_a_file} and {rater_b_file} contain empty manikins.')
-            pairwise_distance = 1
+            if exclude_empty:
+                pairwise_distance = -1
+            else:
+                pairwise_distance = 1
         else:
             pairwise_distance = jaccard_index(file_a_coords, file_b_coords)
 
-        marked_sections[pathlib.Path(s).stem] = pairwise_distance
-        if verbose:
-            print(f'{s} jaccard: {pairwise_distance}')
+        if pairwise_distance != -1:
+            marked_sections[pathlib.Path(s).stem] = pairwise_distance
+            if verbose:
+                print(f'{s} jaccard: {pairwise_distance}')
+
     return marked_sections
 
 def per_region_jaccard_csv(files: dict, datafile: str, region_pixel_maps: list[str], downscale: int=10,
-                           verbose: bool=True):
+                           verbose: bool=True, exclude_empty: bool=True):
     """
     Calculate per-region jaccard distance between matched pairs of files. Writes results to csv file in location
     specified by datafile. Creates a csv file where column headers are the names of each pain region pixel map file,
@@ -139,6 +146,7 @@ def per_region_jaccard_csv(files: dict, datafile: str, region_pixel_maps: list[s
     :param downscale: Downscale/precision factor. Downscale factor of 10 means each 10x10 square of pixels will
     be marked as painful if any one pixel in that square is marked as painful.
     :param verbose: Whether to output progress to command line as files are processed
+    :param exclude_empty: regions where neither pain drawing has a mark will be recorded as NA rather than 1
     :return:
     """
     # get column headers from region pixel maps list
@@ -152,10 +160,13 @@ def per_region_jaccard_csv(files: dict, datafile: str, region_pixel_maps: list[s
             filename = os.path.basename(k)
             if verbose:
                 print(f'processing: {filename}')
-            region_jaccards = per_region_jaccard(k,v,region_pixel_maps, downscale, verbose)
+            region_jaccards = per_region_jaccard(k,v,region_pixel_maps, downscale, verbose, exclude_empty)
             f.write(filename)
             for c in column_headers:
-                f.write(f',{region_jaccards[c]}')
+                if c in region_jaccards:
+                    f.write(f',{region_jaccards[c]}')
+                else:
+                    f.write(f',')
             f.write('\n')
 
 def convert_per_region_jaccard_to_avg(datafile: str, heatmap_file: str, region_pixel_maps: list[str]):
