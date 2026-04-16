@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from scipy import stats as st
 import cv2
 import numpy as np
+import pathlib
 
 def get_full_df(files: list[str]) -> pd.DataFrame:
     dfs = []
@@ -105,28 +106,58 @@ def per_region_jaccard(rater_a_file: str, rater_b_file: str, region_pixel_maps: 
     for s in region_pixel_maps:
         section_image = cv2.imread(s)
         section_mask = cv2.inRange(section_image, (0, 0, 255), (0, 0, 255))
-        file_a_coords = get_file_coords(rater_a_file, 255, 10, verbose, section_mask)
-        file_b_coords = get_file_coords(rater_b_file, 255, 10, verbose, section_mask)
+        file_a_coords = get_file_coords(rater_a_file, 255, downscale, verbose, section_mask)
+        file_b_coords = get_file_coords(rater_b_file, 255, downscale, verbose, section_mask)
 
         if verbose:
             print(f'Rater a coords in section {s}: {len(file_a_coords)}')
             print(f'Rater b coords in section {s}: {len(file_b_coords)}')
 
         if len(file_a_coords) == 0 and len(file_b_coords) == 0:
-            print(f'both {rater_a_file} and {rater_b_file} contain empty manikins.')
+            if verbose:
+                print(f'both {rater_a_file} and {rater_b_file} contain empty manikins.')
             pairwise_distance = 1
-        elif len(file_b_coords) == 0:
-            print(f'File {rater_b_file} contains empty manikin.')
-            # todo record this in file
-            continue
         else:
             pairwise_distance = jaccard_index(file_a_coords, file_b_coords)
 
-        marked_sections[os.path.basename(s)] = pairwise_distance
+        marked_sections[pathlib.Path(s).stem] = pairwise_distance
         if verbose:
             print(f'{s} jaccard: {pairwise_distance}')
-        # todo save debug image
     return marked_sections
+
+def per_region_jaccard_csv(files: dict, datafile: str, region_pixel_maps: list[str], downscale: int=10,
+                           verbose: bool=True):
+    """
+    Calculate per-region jaccard distance between matched pairs of files. Writes results to csv file in location
+    specified by datafile. Creates a csv file where column headers are the names of each pain region pixel map file,
+    plus a filename column. Rows have the filename from the dictionary key, and the per-region jaccard index between
+    the pair of files identified by that key.
+    :param files: Dictionary with keys as file paths to rater a pixel maps and values as file paths to rater b
+    pixel maps.
+    :param datafile: The file path to save results to.
+    :param region_pixel_maps: The pixel maps defining each pain region
+    :param downscale: Downscale/precision factor. Downscale factor of 10 means each 10x10 square of pixels will
+    be marked as painful if any one pixel in that square is marked as painful.
+    :param verbose: Whether to output progress to command line as files are processed
+    :return:
+    """
+    # get column headers from region pixel maps list
+    column_headers = [pathlib.Path(f).stem for f in region_pixel_maps]
+    with open(datafile, 'w') as f:
+        f.write('filename')
+        for c in column_headers:
+            f.write(f',{c}')
+        f.write('\n')
+        for k,v in files.items():
+            filename = os.path.basename(k)
+            if verbose:
+                print(f'processing: {filename}')
+            region_jaccards = per_region_jaccard(k,v,region_pixel_maps, downscale, verbose)
+            f.write(filename)
+            for c in column_headers:
+                f.write(f',{region_jaccards[c]}')
+            f.write('\n')
+
 
 def calculate_jaccard_indexes_lowmem(files: dict, datafile: str, downscale: int=10, verbose: bool = True):
     """
