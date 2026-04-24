@@ -259,6 +259,26 @@ def calculate_jaccard_indexes(files_a: list[str], files_b: list[str], datafile: 
             f.write(f'{d},{pairwise_distances[d]}\n')
     return None
 
+def body_region_jaccard_index(rater_a_csv: str, rater_b_csv: str, datafile: str, verbose: bool = True, index_col: str = 'filename'):
+    """
+    Calculate jaccard distance between raters on matched pairs of files based on which predefined body regions each
+    rater marked as containing pain. Writes results to csv file in location specified by datafile.
+    :param rater_a_csv:
+    :param rater_b_csv:
+    :param datafile: The file path to save results to.
+    :param verbose: Whether to output progress to command line as files are processed
+    :param index_col: The index column for both rater_a_df and rater_b_df
+    :return:
+    """
+    rater_a_df = pd.read_csv(rater_a_csv, index_col=index_col)
+    rater_b_df = pd.read_csv(rater_b_csv, index_col=index_col)
+    intersection_df = rater_a_df & rater_b_df
+    intersection_df['count'] = intersection_df.sum(axis=1)
+    union_df = rater_a_df | rater_b_df
+    union_df['count'] = union_df.sum(axis=1)
+    result = intersection_df['count']/union_df['count']
+    result.to_csv(datafile, header=['jaccard'])
+
 def get_file_summary_stats(datafile: str, column: str):
     df = pd.read_csv(datafile)
 
