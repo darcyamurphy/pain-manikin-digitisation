@@ -177,7 +177,7 @@ def run_jaccard(jaccard_dir_a: str, jaccard_dir_b: str, log_file: str):
     metrics.calculate_jaccard_indexes(files_a, files_b, log_file)
 
 def analyse_jaccard(data_file: str):
-    metrics.analyse_jaccard_indexes(data_file)
+    metrics.get_file_summary_stats(data_file, 'jaccard')
 
 def run_pain_extents(files: list[str], template_file: str, log_file: str):
     metrics.get_pain_extents(files, template_file, log_file)

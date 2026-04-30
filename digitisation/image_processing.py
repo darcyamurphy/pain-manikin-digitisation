@@ -2,7 +2,6 @@ import numpy as np
 import imutils
 import cv2
 import math
-from sklearn.cluster import AgglomerativeClustering
 import pathlib
 import os
 import scipy.cluster.hierarchy as hcluster
@@ -309,7 +308,7 @@ def get_distance_between_vectors(v1, v2) -> float:
     distances = []
     for x1 in v1:
         for x2 in v2:
-            # for some reason each pair of points is wrapped in an extra list
+            # each pair of points is wrapped in an extra list
             distances.append(math.dist(x1[0], x2[0]))
 
     return min(distances)
@@ -338,29 +337,6 @@ def fast_distance_matrix(contours) -> np.array:
             cj = hull_list[j]
             distance_matrix[i][j] = get_distance_between_vectors(ci, cj)
     return distance_matrix
-
-def agglomerative_clustering(contours):
-    # group together nearby contours
-    distance_matrix = get_contour_distance_matrix(contours)
-    # Linkage method to use for hierarchical clustering. Can be average, complete, or single.
-    # need a better way to determine num clusters
-    n_clusters = 18
-    a_g = AgglomerativeClustering(n_clusters=n_clusters, metric='precomputed', linkage='average')
-    a_g.fit(distance_matrix)
-
-    contours_dict = {}
-    for i in range(len(contours)):
-        l = a_g.labels_[i]
-        if not l in contours_dict:
-            contours_dict[l] = []
-        contours_dict[l].append(contours[i])
-
-    hull_list = []
-    for k,v in contours_dict.items():
-        cont = np.vstack([v[i] for i in range(len(v))])
-        hull = cv2.convexHull(cont)
-        hull_list.append(hull)
-    return hull_list
 
 def individual(contours):
     # Find the convex hull object for each contour
@@ -406,16 +382,16 @@ def get_convex_hull(image_path: str, low_threshold: int, high_threshold: int, ou
                     visualise:bool=True, vis_dir: str = '',
                     pixel_mask_template: str = ''):
     """
-
     :param image_path:
-    :param low_threshold:
-    :param high_threshold:
+    :param low_threshold: Low canny threshold
+    :param high_threshold: High canny threshold
     :param output_dir: The directory to save pixel maps of found pain regions to.
     :param clustering_threshold: The threshold to use when clustering contours. Higher numbers will form bigger groups.
     :param debug: Whether to output images of found contours. If true, must specify debug_dir.
     :param source_image: If debug is true and a source image is provided, the convex hulls will be drawn onto the source
     image and saved to the debug folder.
-    :param method:
+    :param method: 'hierarchical' to use hierarchical clustering to group marks together or 'individual' to draw hulls
+     around each mark individually.
     :param debug_dir: Must be specified if debug = True. The directory to save debug images to.
     :param visualise: Whether to output visualisation of convex hull drawn over original image. If True, must specify
     source_image and vis_dir
@@ -435,9 +411,7 @@ def get_convex_hull(image_path: str, low_threshold: int, high_threshold: int, ou
     if len(contours) == 0:
         return
 
-    if method == 'agglomerative':
-        hull_list = agglomerative_clustering(contours)
-    elif method == 'hierarchical':
+    if method == 'hierarchical':
         hull_list = hierarchical_clustering(contours, clustering_threshold)
     else:
         hull_list = individual(contours)

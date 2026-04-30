@@ -5,6 +5,9 @@ import math
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy import stats as st
+import cv2
+import numpy as np
+import pathlib
 
 def get_full_df(files: list[str]) -> pd.DataFrame:
     dfs = []
@@ -48,12 +51,182 @@ def get_file_list_coords(files: list[str], downscale: int=10):
     all_examples = {}
     for f in files:
         pixels, size = data_io.get_pixels(f)
-        coords = data_io.get_coords(pixels, [(255, 0, 0), (255, 0, 0, 255)], size[1])
+        coords = data_io.get_coords(pixels, [(255, 0, 0), (255, 0, 0, 255)], size[0])
         coord_set = build_coord_set(coords, downscale)
         filename = os.path.basename(f)
         all_examples[filename] = coord_set
         print(f'file {filename}, {len(coord_set)} coords')
     return all_examples
+
+def get_file_coords(file_path: str, match_colour: int, downscale: int=10, verbose: bool = True, mask = None):
+    """
+    Get the set of coordinates of the pixels in the specified file which are of match_colour when the image is converted
+    to grayscale. The coordinates are downscaled by the specified downscale factor. So e.g. a 10x10 pixel file would by
+    default have set of 1 coordinates. If a boolean pixel mask is provided, only pixels within the mask area are
+    considered.
+    :param file_path:
+    :param match_colour:
+    :param downscale:
+    :param verbose:
+    :param mask:
+    :return:
+    """
+    img = cv2.imread(file_path)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    height, width = img.shape
+    coords = []
+    for i in range(width):
+        for j in range(height):
+            if img[j][i] != match_colour:
+                # only check if pixel allowed by mask when a mask was provided
+                if mask is not None and mask[j][i] or mask is None:
+                    # note that the img array is y,x but we switch to x,y
+                    coords.append((i,j))
+
+    coord_set = build_coord_set(coords, downscale)
+    if verbose:
+        print(f'file {file_path}, {len(coord_set)} coords')
+    return coord_set
+
+def per_region_jaccard(rater_a_file: str, rater_b_file: str, region_pixel_maps: list[str], downscale: int=10,
+                       verbose: bool = True, exclude_empty: bool=True) -> dict[str: float]:
+    """
+    Calculate jaccard distance per predefined pain region between a matched pair of files.
+    :param rater_a_file: The pixel map from rater a
+    :param rater_b_file: The pixel map from rater b
+    :param region_pixel_maps: The pixel maps defining each pain region
+    :param downscale: Downscale/precision factor. Downscale factor of 10 means each 10x10 square of pixels will
+    be marked as painful if any one pixel in that square is marked as painful.
+    :param verbose: Whether to output progress to command line as files are processed
+    :param exclude_empty: When True, if both pain drawings have no marks in an area then no entry will be recorded
+    for that area
+    :return: a dict with the predefined pain region file names as keys and the jaccard index in that pain region
+    as the value
+    """
+
+    marked_sections = {}
+    for s in region_pixel_maps:
+        section_image = cv2.imread(s)
+        section_mask = cv2.inRange(section_image, (0, 0, 255), (0, 0, 255))
+        file_a_coords = get_file_coords(rater_a_file, 255, downscale, verbose, section_mask)
+        file_b_coords = get_file_coords(rater_b_file, 255, downscale, verbose, section_mask)
+
+        if verbose:
+            print(f'Rater a coords in section {s}: {len(file_a_coords)}')
+            print(f'Rater b coords in section {s}: {len(file_b_coords)}')
+
+        if len(file_a_coords) == 0 and len(file_b_coords) == 0:
+            if verbose:
+                print(f'both {rater_a_file} and {rater_b_file} contain empty manikins.')
+            if exclude_empty:
+                pairwise_distance = -1
+            else:
+                pairwise_distance = 1
+        else:
+            pairwise_distance = jaccard_index(file_a_coords, file_b_coords)
+
+        if pairwise_distance != -1:
+            marked_sections[pathlib.Path(s).stem] = pairwise_distance
+            if verbose:
+                print(f'{s} jaccard: {pairwise_distance}')
+
+    return marked_sections
+
+def per_region_jaccard_csv(files: dict, datafile: str, region_pixel_maps: list[str], downscale: int=10,
+                           verbose: bool=True, exclude_empty: bool=True):
+    """
+    Calculate per-region jaccard distance between matched pairs of files. Writes results to csv file in location
+    specified by datafile. Creates a csv file where column headers are the names of each pain region pixel map file,
+    plus a filename column. Rows have the filename from the dictionary key, and the per-region jaccard index between
+    the pair of files identified by that key.
+    :param files: Dictionary with keys as file paths to rater a pixel maps and values as file paths to rater b
+    pixel maps.
+    :param datafile: The file path to save results to.
+    :param region_pixel_maps: The paths to the files with pixel maps defining each pain region
+    :param downscale: Downscale/precision factor. Downscale factor of 10 means each 10x10 square of pixels will
+    be marked as painful if any one pixel in that square is marked as painful.
+    :param verbose: Whether to output progress to command line as files are processed
+    :param exclude_empty: regions where neither pain drawing has a mark will be recorded as NA rather than 1
+    :return:
+    """
+    # get column headers from region pixel maps list
+    column_headers = [pathlib.Path(f).stem for f in region_pixel_maps]
+    with open(datafile, 'w') as f:
+        f.write('filename')
+        for c in column_headers:
+            f.write(f',{c}')
+        f.write('\n')
+        for k,v in files.items():
+            filename = os.path.basename(k)
+            if verbose:
+                print(f'processing: {filename}')
+            region_jaccards = per_region_jaccard(k,v,region_pixel_maps, downscale, verbose, exclude_empty)
+            f.write(filename)
+            for c in column_headers:
+                if c in region_jaccards:
+                    f.write(f',{region_jaccards[c]}')
+                else:
+                    f.write(f',')
+            f.write('\n')
+
+def convert_per_region_jaccard_to_avg(datafile: str, heatmap_file: str, region_pixel_maps: list[str]):
+    """
+    Utility function to convert the csv generated by per_region_jaccard_csv to the format required to generate a heatmap
+    using the plots script.
+    :param datafile: A csv file with column headers which match the stems of the file paths in the region_pixel_maps
+    list
+    :param heatmap_file: The location to save the new file to
+    :param region_pixel_maps: The paths to the files with pixel maps defining each pain region
+    :return:
+    """
+    df = pd.read_csv(datafile)
+    # we don't care about the individual rows or the filename column, we just want the average jaccard index per column
+    # heatmap requires a file with path column and value column
+    with open(heatmap_file, 'w') as f:
+        f.write('path,value\n')
+        for region_path in region_pixel_maps:
+            column_header = pathlib.Path(region_path).stem
+            column_mean = df[column_header].mean()
+            f.write(f'{region_path},{column_mean}\n')
+
+
+def calculate_jaccard_indexes_lowmem(files: dict, datafile: str, downscale: int=10, verbose: bool = True):
+    """
+    Calculate jaccard distance between matched pairs of files. Writes results to csv file in location specified
+    by datafile.
+    :param files: Dictionary with keys as file paths to rater a pixel maps and values as file paths to rater b
+    pixel maps.
+    :param datafile: The file path to save results to.
+    :param downscale: Downscale/precision factor. Downscale factor of 10 means each 10x10 square of pixels will
+    be marked as painful if any one pixel in that square is marked as painful.
+    :param verbose: Whether to output progress to command line as files are processed
+    :return:
+    """
+    match_colour = 255
+    with open(datafile, 'w') as f:
+        f.write('filename,jaccard\n')
+        for k, v in files.items():
+            filename = os.path.basename(k)
+            if verbose:
+                print(f'processing: {filename}')
+
+            file_a_coords = get_file_coords(k, match_colour, downscale, verbose)
+            file_b_coords = get_file_coords(v, match_colour, downscale, verbose)
+
+            if len(file_a_coords) == 0:
+                print(f'File {k} contains empty manikin.')
+                # todo record this in file
+                continue
+            elif  len(file_b_coords) == 0:
+                print(f'File {v} contains empty manikin.')
+                #todo record this in file
+                continue
+            else:
+                pairwise_distance = jaccard_index(file_a_coords, file_b_coords)
+                f.write(f'{filename},{pairwise_distance}\n')
+            if verbose:
+                print(f'jaccard: {pairwise_distance}')
+            # todo save debug image
 
 def calculate_jaccard_indexes(files_a: list[str], files_b: list[str], datafile: str, downscale: int = 10):
     """
@@ -86,19 +259,39 @@ def calculate_jaccard_indexes(files_a: list[str], files_b: list[str], datafile: 
             f.write(f'{d},{pairwise_distances[d]}\n')
     return None
 
+def body_region_jaccard_index(rater_a_csv: str, rater_b_csv: str, datafile: str, verbose: bool = True, index_col: str = 'filename'):
+    """
+    Calculate jaccard distance between raters on matched pairs of files based on which predefined body regions each
+    rater marked as containing pain. Writes results to csv file in location specified by datafile.
+    :param rater_a_csv:
+    :param rater_b_csv:
+    :param datafile: The file path to save results to.
+    :param verbose: Whether to output progress to command line as files are processed
+    :param index_col: The index column for both rater_a_df and rater_b_df
+    :return:
+    """
+    rater_a_df = pd.read_csv(rater_a_csv, index_col=index_col)
+    rater_b_df = pd.read_csv(rater_b_csv, index_col=index_col)
+    intersection_df = rater_a_df & rater_b_df
+    intersection_df['count'] = intersection_df.sum(axis=1)
+    union_df = rater_a_df | rater_b_df
+    union_df['count'] = union_df.sum(axis=1)
+    result = intersection_df['count']/union_df['count']
+    result.to_csv(datafile, header=['jaccard'])
 
-def analyse_jaccard_indexes(datafile: str):
-    pairwise_distances = pd.read_csv(datafile)
+def get_file_summary_stats(datafile: str, column: str):
+    df = pd.read_csv(datafile)
 
-    std_dev = pairwise_distances['jaccard'].std()
-    mean = pairwise_distances['jaccard'].mean()
-    print(f'mean jaccard: {round(mean, 4)}. standard deviation of jaccard: {round(std_dev, 4)}')
+    std_dev = df[column].std()
+    mean = df[column].mean()
+    print(f'{column} mean : {round(mean, 4)}. standard deviation: {round(std_dev, 4)}.'
+          f' range: ({round(df[column].min(), 4)} - {round(df[column].max(), 4)})')
 
 def get_pain_extents(files: list[str], template_file: str, datafile: str):
     # pain extent is % of available area so need digitised area and template
     # then just divide num pixels marked by total available pixels
     template_pixels, template_size = data_io.get_pixels(template_file)
-    template_coords = data_io.get_coords(template_pixels, [(255, 0, 0), (255, 0, 0, 255)], template_size[1])
+    template_coords = data_io.get_coords(template_pixels, [(255, 0, 0), (255, 0, 0, 255)], template_size[0])
     available_pixels = len(template_coords)
 
     with open(datafile, 'w') as df:
@@ -106,7 +299,7 @@ def get_pain_extents(files: list[str], template_file: str, datafile: str):
         all_areas = {}
         for f in files:
             pixels, size = data_io.get_pixels(f)
-            coords = data_io.get_coords(pixels, [(255, 0, 0), (255, 0, 0, 255)], size[1])
+            coords = data_io.get_coords(pixels, [(255, 0, 0), (255, 0, 0, 255)], size[0])
             filename = os.path.basename(f)
             marked_pixels = len(coords)
             all_areas[filename] = marked_pixels
@@ -119,6 +312,151 @@ def compare_pain_extents(datafile_a: str, datafile_b: str):
     pain_extents_b = data_io.load_pain_extents(datafile_b)[['filename', 'pixels']]
     result = pd.merge(pain_extents_a, pain_extents_b, on='filename', suffixes=('_a', '_b')).rename(columns={'pixels_a':'a', 'pixels_b': 'b'})
     bland_altman_plot(result)
+
+def does_pixel_match_surface(gt_img, x: int, y: int, tau: int, match_colour: int) -> int:
+    """
+    Check if provided pixel coords are within tau pixels of a pixel of match_colour in gt_img.
+    Checks in a 2tau by 2tau square around the pixel at (x,y), ignoring pixels outside the boundary of the image.
+    :param gt_img:
+    :param x: x coord of pixel to check
+    :param y: y coord of pixel to chek
+    :param tau: allowable distance
+    :param match_colour: value of pixels which are part of the surface
+    :return: match_colour if there is a matching pixel within range, otherwise 0
+    """
+    height, width = gt_img.shape
+    x_lower = max(x-tau, 0)
+    x_upper = min(x+tau, width-1)
+    y_lower = max(y-tau, 0)
+    y_upper = min(y + tau, height-1)
+    for i in range(x_lower, x_upper+1):
+        for j in range(y_lower, y_upper+1):
+            # coordinates are y,x not x,y!
+            if gt_img[j][i] == match_colour:
+                return match_colour
+    return 0
+
+def get_matching_pixel_count(img, match_colour: int) -> int:
+    """
+    Get the number of pixels/cells in img that have the value match_colour. Assumes one colour channel.
+    :param img:
+    :param match_colour:
+    :return:
+    """
+    values, counts = np.unique(img, return_counts=True)
+    result = dict(zip(values, counts))
+    try:
+        count = result[match_colour]
+    except KeyError:
+        count = 0
+    return count
+
+def calculate_dice_surface_distances(files: dict, datafile: str, tau: int, verbose: bool = True):
+    """
+    Calculate dice surface distance between matched pairs of files. Writes results to csv file in location specified
+    by datafile.
+    :param files: Dictionary with keys as file paths to ground truth pixel maps and values as file paths to predicted
+    pixel maps.
+    :param datafile: The output file to save results to.
+    :param tau: maximum acceptable distance in pixels between true surface and predicted surface
+    :param verbose: Output progress to command line
+    :return:
+    """
+    match_colour = 255
+    with open(datafile, 'w') as f:
+        f.write('filename,dsc\n')
+        for k, v in files.items():
+            filename = os.path.basename(k)
+            if verbose:
+                print(f'processing: {filename}')
+            # load ground truth
+            gt_img = cv2.imread(k)
+            gt_img = cv2.cvtColor(gt_img, cv2.COLOR_BGR2GRAY)
+            # load prediction
+            p_img = cv2.imread(v)
+            p_img = cv2.cvtColor(p_img, cv2.COLOR_BGR2GRAY)
+            # nb canny thresholds not super important because the pixel maps should be only two colours with no noise
+            # edge detection on ground truth
+            gt_edges = cv2.Canny(gt_img, 100, 200)
+            matches = np.zeros_like(gt_edges)
+            # edge detection on prediction
+            p_edges = cv2.Canny(p_img, 100, 200)
+            height, width = matches.shape
+            for i_x in range(width):
+                for j_y in range(height):
+                    # coordinates are y,x not x,y!
+                    if p_edges[j_y][i_x] == match_colour:
+                        matches[j_y][i_x] = does_pixel_match_surface(gt_edges, i_x, j_y, tau, match_colour)
+
+            good_pixels = get_matching_pixel_count(matches, match_colour)
+            true_edge_size = get_matching_pixel_count(gt_edges, match_colour)
+            predicted_edge_size = get_matching_pixel_count(p_edges, match_colour)
+            if true_edge_size + predicted_edge_size == 0:
+                # if there are no true edges and we also didn't predict any edges, we were correct
+                # but we can't divide by 0 so we just set dsc to 1 to satisfy the laws of mathematics
+                dsc = 1
+            else:
+                dsc = (2*good_pixels) / (true_edge_size + predicted_edge_size)
+            if verbose:
+                print(f'dsc: {dsc}')
+            # todo save debug image
+
+            f.write(f'{filename},{dsc}\n')
+
+def calculate_normalised_surface_distances(files: dict, datafile: str, tau: int, verbose: bool = True):
+    """
+    Calculate normalised surface distance between matched pairs of files. Writes results to csv file in location
+     specified by datafile. Normalised surface distance is a symmetric metric so doesn't require one rater to be
+     ground truth.
+    :param files: Dictionary with keys as file paths to rater A pixel maps and values as file paths to rater B
+    pixel maps.
+    :param datafile: The output file to save results to.
+    :param tau: maximum acceptable distance in pixels between boundaries
+    :param verbose: Output progress to command line
+    :return:
+    """
+    match_colour = 255
+    with open(datafile, 'w') as f:
+        f.write('filename,nsd\n')
+        for k, v in files.items():
+            filename = os.path.basename(k)
+            if verbose:
+                print(f'processing: {filename}')
+
+            img_a = cv2.imread(k)
+            img_a = cv2.cvtColor(img_a, cv2.COLOR_BGR2GRAY)
+            # nb canny thresholds not super important because the pixel maps should be only two colours with no noise
+            edges_a = cv2.Canny(img_a, 100, 200)
+            matches_a = np.zeros_like(edges_a)
+
+            img_b = cv2.imread(v)
+            img_b = cv2.cvtColor(img_b, cv2.COLOR_BGR2GRAY)
+            edges_b = cv2.Canny(img_b, 100, 200)
+            matches_b = np.zeros_like(edges_b)
+
+            height, width = matches_a.shape
+            for i_x in range(width):
+                for j_y in range(height):
+                    # coordinates are y,x not x,y!
+                    if edges_b[j_y][i_x] == match_colour:
+                        matches_b[j_y][i_x] = does_pixel_match_surface(edges_a, i_x, j_y, tau, match_colour)
+                    if edges_a[j_y][i_x] == match_colour:
+                        matches_a[j_y][i_x] = does_pixel_match_surface(edges_b, i_x, j_y, tau, match_colour)
+
+            surface_a_match_count = get_matching_pixel_count(matches_a, match_colour)
+            surface_b_match_count = get_matching_pixel_count(matches_b, match_colour)
+            surface_a_size = get_matching_pixel_count(edges_a, match_colour)
+            surface_b_size = get_matching_pixel_count(edges_b, match_colour)
+            if surface_a_size + surface_b_size == 0:
+                # if neither rater drew any edges, they agree perfectly
+                nsd = 1
+            else:
+                nsd = (surface_a_match_count + surface_b_match_count) / (surface_a_size + surface_b_size)
+            if verbose:
+                print(f'nsd: {nsd}')
+            # todo save debug image
+
+            f.write(f'{filename},{nsd}\n')
 
 def bland_altman_plot(df: pd.DataFrame):
     """

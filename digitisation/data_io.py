@@ -150,6 +150,23 @@ def get_source_files(source_dir: str, extension: str) -> list[str]:
     files = [os.path.join(source_dir, f) for f in os.listdir(source_dir) if Path(f).suffix == extension]
     return files
 
+def get_matching_files_dict(dir_a: str, dir_b: str, extension: str) -> dict:
+    """
+    Build a dict with all the matched pairs of files from dir_a and dir_b with specified extension.
+    dir_a paths will be keys and dir_b paths will be values.
+    :param dir_a:
+    :param dir_b:
+    :param extension:
+    :return:
+    """
+    source_files = get_source_files(dir_a, extension)
+    matches_dict = {}
+    for f in source_files:
+        result = get_matched_file(f, dir_b)
+        if os.path.isfile(result):
+            matches_dict[f] = result
+    return matches_dict
+
 def create_sub_dir(output_dir: str, subdir: str = 'temp') -> str:
     """
     Create temp output dir
