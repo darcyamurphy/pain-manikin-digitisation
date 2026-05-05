@@ -279,7 +279,14 @@ def body_region_jaccard_index(rater_a_csv: str, rater_b_csv: str, datafile: str,
     result = intersection_df['count']/union_df['count']
     result.to_csv(datafile, header=['jaccard'])
 
-def get_file_summary_stats(datafile: str, column: str):
+def get_file_summary_stats(datafile: str, column: str, index_column: str = 'filename'):
+    """
+    Get mean, standard deviation and range of the values in specified column
+    :param datafile: Path to csv file
+    :param column: The name of the column to summarise
+    :param index_column: Default is 'filename'.
+    :return:
+    """
     df = pd.read_csv(datafile)
 
     std_dev = df[column].std()

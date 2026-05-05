@@ -1,5 +1,5 @@
 [DEFAULT]
-RawDir = ./data/synthetic/raw_jps
+RawDir = ./data/synthetic/raw_jpgs
 
 [RESOURCES]
 AlignmentTemplate = ./data/resources/template.pdf
@@ -8,7 +8,7 @@ CroppedTemplate = ./data/resources/template_image.png
 SectionsDir = ./data/resources/widespreadpain_sections
 
 [OUTPUTS]
-OutputDir = ./data/synthetic/output_jpgs
+OutputDir = ./data/synthetic/output_jpgs_200
 ImgsDir = images
 MaskedDir = tmp/masked
 RealignedDir = tmp/realigned
@@ -18,7 +18,7 @@ VisualisationsDir = vis
 PainRegionsDir = pain_regions
 
 [DATA]
-DataDir = ./data/synthetic/datafiles_jpgs
+DataDir = ./data/synthetic/datafiles_jpgs_200
 FilenameMap = filenames.csv
 SectionsLog = body_region_annotations.csv
 AlignmentLog = alignment_log.csv
@@ -36,19 +36,19 @@ LeftUpper = 1750, 0
 RightLower = 2550, 350
 
 [JACCARD]
-DirA = ./data/synthetic/output_jpgs/pain_regions
+DirA = ./data/synthetic/output_jpgs_200/pain_regions
 DirB = ./data/synthetic/manual_pixel_maps_masked
-LogFile = ./data/output/datafiles_jpgs/jaccard_log_a_vs_b.csv
+LogFile = ./data/synthetic/datafiles_jpgs_200/jaccard_log_a_vs_b.csv
 
 [EXTENT]
-Dir = ./data/synthetic/output_jpgs/pain_regions
-LogFile = ./data/synthetic/datafiles_jpgs/extent_log_a.csv
+Dir = ./data/synthetic/output_jpgs_200/pain_regions
+LogFile = ./data/synthetic/datafiles_jpgs_200/extent_log_a.csv
 Template = ./data/resources/both_template.png
-CompareA =./data/synthetic/datafiles_jpgs/extent_log_a.csv
-CompareB = ./data/synthetic/datafiles_jpgs/extent_log_b.csv
+CompareA =./data/synthetic/datafiles_jpgs_200/extent_log_a.csv
+CompareB = ./data/synthetic/datafiles_jpgs_200/extent_log_b.csv
 
 [ADVANCED]
-BackgroundColourLowerBound = 250, 250, 250
+BackgroundColourLowerBound = 200, 200, 200
 BackgroundColourUpperBound = 255, 255, 255
 ErosionSize = 3
 MinPixelsPerSection = 20
