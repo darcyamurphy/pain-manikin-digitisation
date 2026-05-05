@@ -48,8 +48,10 @@ CompareA =./data/synthetic/datafiles_jpgs_200/extent_log_a.csv
 CompareB = ./data/synthetic/datafiles_jpgs_200/extent_log_b.csv
 
 [ADVANCED]
+# colours are BGR
 BackgroundColourLowerBound = 200, 200, 200
 BackgroundColourUpperBound = 255, 255, 255
+BackgroundColourReplacement = 255, 255, 255
 ErosionSize = 3
 MinPixelsPerSection = 20
 LowCannyThreshold = 100

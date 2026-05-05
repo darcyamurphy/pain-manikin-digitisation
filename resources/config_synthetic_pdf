@@ -48,8 +48,10 @@ CompareA =./data/synthetic/datafiles_pdf/extent_log_a.csv
 CompareB = ./data/synthetic/datafiles_pdf/extent_log_b.csv
 
 [ADVANCED]
+# colours are BGR
 BackgroundColourLowerBound = 250, 250, 250
 BackgroundColourUpperBound = 255, 255, 255
+BackgroundColourReplacement = 255, 255, 255
 ErosionSize = 3
 MinPixelsPerSection = 20
 LowCannyThreshold = 100

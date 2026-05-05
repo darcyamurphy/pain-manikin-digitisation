@@ -91,14 +91,22 @@ def realign_image(output_dir: str, temp_dir: str, alignment_template: str,
     else:
         print(f'Saved to {output_path}')
 
-def pixel_mask(img_dir: str, masked_dir: str, pixel_template: str):
+def pixel_mask(img_dir: str, masked_dir: str, pixel_template: str, background_colour: tuple[int, int, int]):
+    """
+
+    :param img_dir:
+    :param masked_dir:
+    :param pixel_template:
+    :param background_colour: RGB background colour
+    :return:
+    """
     data_io.try_make_dir(masked_dir)
     mask = image_processing.get_mask(pixel_template, (0, 0, 255))
     files = data_io.get_source_files(img_dir, '.png')
 
     for f in files:
         img = cv2.imread(f)
-        masked_image = image_processing.remove_template_pixels(img, (255, 255, 255), mask)
+        masked_image = image_processing.remove_template_pixels(img, background_colour, mask)
         new_filename = os.path.join(masked_dir, Path(f).stem + '.png')
         success = cv2.imwrite(new_filename, masked_image)
 
@@ -185,12 +193,13 @@ def run_pain_extents(files: list[str], template_file: str, log_file: str):
 def compare_pain_extents(datafile_a: str, datafile_b: str):
     metrics.compare_pain_extents(datafile_a, datafile_b)
 
-def preprocessing_demo(template_file: str, background_lower: tuple[int, int, int], background_upper: tuple[int, int, int], erosion_size: int):
+def preprocessing_demo(template_file: str, background_lower: tuple[int, int, int],
+                       background_upper: tuple[int, int, int], erosion_size: int):
     """
-    Demonstrate preprocessing steps to check template lines are correctly removed
+    Show visualisation of where the template lines which will be removed are
     :param template_file: Path to pixel template file
-    :param background_lower: HSV lower bound for background colour in template
-    :param background_upper: HSV upper bound for background colour in template
+    :param background_lower: RGB lower bound for background colour in template
+    :param background_upper: RGB upper bound for background colour in template
     :param erosion_size: How much to expand template lines to make sure lines fully overlap manikin outline in aligned images
     :return:
     """
@@ -198,15 +207,18 @@ def preprocessing_demo(template_file: str, background_lower: tuple[int, int, int
 
 def preprocess_dir(input_dir: str, output_dir: str, template_file: str,
                    background_lower: tuple[int, int, int],
-                   background_upper: tuple[int, int, int], erosion_size: int,
+                   background_upper: tuple[int, int, int],
+                   background_replacement: tuple[int, int, int],
+                   erosion_size: int,
                    alpha: float = 1.0, beta: int = 0):
     """
     Preprocess images in a specified directory to remove template lines and isolate marks made by participants.
     :param input_dir: Directory of aligned pain drawings
     :param output_dir: Directory to save preprocessed images to
     :param template_file: Path to pixel template file
-    :param background_lower: HSV lower bound for background colour in template
-    :param background_upper: HSV upper bound for background colour in template
+    :param background_lower: RGB lower bound for background colour in template
+    :param background_upper: RGB upper bound for background colour in template
+    :param background_replacement: RGB for background colour to use when masking template
     :param erosion_size: How much to expand template lines to make sure lines fully overlap manikin outline in aligned images
     :param alpha: Contrast adjustment
     :param beta: brightness adjustment
@@ -225,12 +237,12 @@ def preprocess_dir(input_dir: str, output_dir: str, template_file: str,
         img = cv2.imread(f)
 
         # remove any remaining pixels from the template lines
-        img = image_processing.remove_template_pixels(img, background_upper, template_mask)
+        img = image_processing.remove_template_pixels(img, background_replacement, template_mask)
 
         # apply filters to remove some noise
         img = image_processing.apply_preprocessing_filters(img, alpha, beta)
 
-        img = image_processing.remove_light_pixels(img, background_lower, background_upper)
+        img = image_processing.replace_background_colour(img, background_lower, background_upper, background_replacement)
 
         success = cv2.imwrite(output_file, img)
         print(f'{output_file}, {success}')

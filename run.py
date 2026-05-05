@@ -100,12 +100,21 @@ def get_extent_logfile(config: configparser.ConfigParser) -> str:
 def get_extent_compare_files(config: configparser.ConfigParser) -> tuple[str, str]:
     return config['EXTENT']['CompareA'], config['EXTENT']['CompareB']
 
-def get_background_colours(config: configparser.ConfigParser) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
-    l_h, l_s, l_v = config['ADVANCED']['BackgroundColourLowerBound'].split(',')
-    u_h, u_s, u_v = config['ADVANCED']['BackgroundColourUpperBound'].split(',')
-    lower = int(l_h), int(l_s), int(l_v)
-    upper = int(u_h), int(u_s), int(u_v)
-    return lower, upper
+def get_background_colours(config: configparser.ConfigParser) ->\
+        tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
+    """
+    Returns background colour lower bound, upper bound and replacement colour
+    The replacement colour is the colour to use when masking the input image
+    :param config:
+    :return:
+    """
+    l_r, l_g, l_b = config['ADVANCED']['BackgroundColourLowerBound'].split(',')
+    u_r, u_g, u_b = config['ADVANCED']['BackgroundColourUpperBound'].split(',')
+    r_r, r_g, r_b = config['ADVANCED']['BackgroundColourReplacement'].split(',')
+    lower = int(l_r), int(l_g), int(l_b)
+    upper = int(u_r), int(u_g), int(u_b)
+    replacement = int(r_r), int(r_g), int(r_b)
+    return lower, upper, replacement
 
 def get_erosion_value(config: configparser.ConfigParser) -> int:
     return int(config['ADVANCED']['ErosionSize'])
@@ -204,7 +213,7 @@ def run():
         cropped_template = get_cropped_template(config)
 
         left_upper, right_lower = get_coords(config)
-        hsv_lower, hsv_upper = get_background_colours(config)
+        rgb_lower, rgb_upper, rgb_replacement = get_background_colours(config)
 
         if args.rename:
             map_file = get_filename_map(config)
@@ -221,14 +230,15 @@ def run():
         main.standard_alignment(img_dir, temp_dir, data_dir,
                                 filenames_map, alignment_template, cropped_template,
                                 os.path.join(data_dir, alignment_log),
-                                left_upper, right_lower, hsv_lower, hsv_upper)
+                                left_upper, right_lower, rgb_lower, rgb_upper)
 
     if args.pixel_mask:
         print('Applying pixel mask')
         pixel_template = get_pixel_template(config)
         img_dir = get_img_dir(config, True)
         masked_dir = get_masked_dir(config)
-        main.pixel_mask(img_dir, masked_dir, pixel_template)
+        bg_lower, bg_upper, bg_replacement = get_background_colours(config)
+        main.pixel_mask(img_dir, masked_dir, pixel_template, bg_replacement)
 
     if args.realign is not None:
         print('Realigning')
@@ -240,14 +250,14 @@ def run():
 
     if args.preprodemo:
         print('Preprocessing demo')
-        lower, upper = get_background_colours(config)
+        lower, upper, replacement = get_background_colours(config)
         erosion = get_erosion_value(config)
         template_img = get_cropped_template(config)
         main.preprocessing_demo(template_img, lower, upper, erosion)
 
     if args.preprocessing:
         print('Preprocessing')
-        lower, upper = get_background_colours(config)
+        lower, upper, replacement = get_background_colours(config)
         erosion = get_erosion_value(config)
         template_img = get_cropped_template(config)
         img_dir = get_img_dir(config, True)
@@ -265,7 +275,7 @@ def run():
             except ValueError:
                 print(f'{args.beta} is not a valid beta value. Must be an int')
 
-        main.preprocess_dir(img_dir, output_dir, template_img, lower, upper, erosion, alpha, beta)
+        main.preprocess_dir(img_dir, output_dir, template_img, lower, upper, replacement, erosion, alpha, beta)
 
     if args.sections:
         print('Finding sections')

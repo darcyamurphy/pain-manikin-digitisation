@@ -193,26 +193,34 @@ def align_images(image, template, debug=False):
     # return the aligned image
     return aligned, matched_vis
 
-def get_template_mask(image_path: str, hsv_lower: tuple[int, int, int], hsv_upper: tuple[int, int, int], erosion_size: int):
+def get_template_mask(image_path: str, rgb_lower: tuple[int, int, int], rgb_upper: tuple[int, int, int], erosion_size: int):
     src_img = cv2.imread(image_path)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * erosion_size + 1, 2 * erosion_size + 1),
                                        (erosion_size, erosion_size))
     eroded_img = cv2.erode(src_img, kernel)
 
     # threshold eroded image to get only background colours
-    mask = cv2.inRange(eroded_img, hsv_lower, hsv_upper)
+    mask = cv2.inRange(eroded_img, rgb_lower, rgb_upper)
 
     # invert mask to get only template line locations
     inverted_mask = cv2.bitwise_not(mask)
     return inverted_mask
 
-def remove_light_pixels(image, hsv_lower, hsv_upper):
-    mask = cv2.inRange(image, hsv_lower, hsv_upper)
-    result = remove_template_pixels(image, hsv_upper, mask)
+def replace_background_colour(image, rgb_lower, rgb_upper, rgb_replacement):
+    """
+    Remove the pixels in the range rgb_lower to rgb_upper and replace them with the colour rgb_replacement
+    :param image:
+    :param rgb_lower:
+    :param rgb_upper:
+    :param rgb_replacement:
+    :return:
+    """
+    mask = cv2.inRange(image, rgb_lower, rgb_upper)
+    result = remove_template_pixels(image, rgb_replacement, mask)
     return result
 
-def demo_template_pixels(image_path: str, hsv_lower: tuple[int, int, int], hsv_upper: tuple[int, int, int], erosion_size: int):
-    inverted_mask = get_template_mask(image_path, hsv_lower, hsv_upper, erosion_size)
+def demo_template_pixels(image_path: str, rgb_lower: tuple[int, int, int], rgb_upper: tuple[int, int, int], erosion_size: int):
+    inverted_mask = get_template_mask(image_path, rgb_lower, rgb_upper, erosion_size)
     # show masked area: white lines will be blanked out
     show_image(inverted_mask, 'Masked area')
 
@@ -220,7 +228,7 @@ def remove_template_pixels(image, background_colour: tuple[int, int, int], templ
     """
     Remove the pixels of the template mask from the input image
     :param image: raw aligned image
-    :param background_colour: background colour to set template mask pixels to
+    :param background_colour: RGB background colour to set template mask pixels to
     :param template_mask: Template mask from get_template_mask or get_mask function
     :return: input img with template mask pixels set to background colour
     """
@@ -242,6 +250,12 @@ def get_mask(manikin_template_path: str, bgr_value: tuple[int, int, int]):
     return inverted
 
 def make_img_of_colour(shape: tuple[int, int], colour: tuple[int, int, int]) -> np.ndarray:
+    """
+
+    :param shape:
+    :param colour: RGB colour
+    :return:
+    """
     background = np.zeros((shape[0], shape[1], 3), np.uint8)
     background[:] = colour
     return background
