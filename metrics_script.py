@@ -7,6 +7,7 @@ if __name__ == '__main__':
     skip_synthetic_jpgs = False
     skip_synthetic_jpgs_200 = False
     skip_apmr = False
+    skip_keele = False
 
     if not skip_synthetic_pdfs:
         print('Processing synthetic pdf results')
@@ -128,6 +129,13 @@ if __name__ == '__main__':
                                           '../manikin_data/apmr/datafiles/body_region_annotations.csv',
                                           '../manikin_data/apmr/datafiles/body_region_jaccard.csv', verbose=False)
 
+    if not skip_keele:
+        # body-region based jaccard index
+        metrics.body_region_jaccard_index('/mnt/RDS_Keele/scans/PMR/datafiles/baseline_output_remapped.csv',
+                                          '/mnt/RDS_Keele/remapped_files/remapped_bl_pain_manikin.csv',
+                                          '/mnt/RDS_Keele/scans/PMR/datafiles/body_region_jaccard.csv',
+                                          index_col = 'surveyid', verbose=True)
+
 
     print('--Synthetic pdf results--')
     print('Alignment:')
@@ -181,3 +189,9 @@ if __name__ == '__main__':
                                    'value', index_column='path')
     print('Body-region-based Jaccard')
     metrics.get_file_summary_stats('../manikin_data/apmr/datafiles/body_region_jaccard.csv', 'jaccard')
+
+    print('-- Keele results --')
+    print('Alignment:')
+    metrics.get_alignment_stats(['/mnt/RDS_Keele/scans/PMR/datafiles/baseline_output/alignment_log.csv'])
+    print('Body-region-based Jaccard')
+    metrics.get_file_summary_stats('/mnt/RDS_Keele/scans/PMR/datafiles/body_region_jaccard.csv', 'jaccard')

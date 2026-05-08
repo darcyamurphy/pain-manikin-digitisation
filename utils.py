@@ -30,3 +30,16 @@ def csv_to_boolean(source_path: str, output_path: str):
     not_na = df.notna()
     not_na['filename'] = df['filename']
     not_na.to_csv(output_path, index=False)
+
+def remap_keele_auto_regions(source_path: str, output_path: str):
+    """
+    Remap the filename column from automatically identifying keele regions to the surveyid column to match the
+    manually identified regions
+    :param source_path:
+    :param output_path:
+    :return:
+    """
+    df = pd.read_csv(source_path)
+    df['surveyid'] = df['filename'].str.extract(r'ID ?(\d+) ?- ?BL.png')
+    df_1 = df.drop(columns='filename')
+    df_1.to_csv(output_path, index=False)

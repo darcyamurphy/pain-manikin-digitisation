@@ -345,7 +345,7 @@ def run():
 
         input_dir = get_pain_regions_dir(config, True)
         extension = get_extension(args.extension, '.png')
-        files = get_files_from_dir_or_list(args.file_list, input_dir, "", extension)
+        files = get_files_from_dir_or_list(args.file_list, input_dir, input_dir, extension)
 
         main.generate_heatmap(files, args.heatmap, heatmap_num)
 

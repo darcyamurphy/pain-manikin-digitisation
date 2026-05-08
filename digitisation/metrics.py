@@ -272,9 +272,41 @@ def body_region_jaccard_index(rater_a_csv: str, rater_b_csv: str, datafile: str,
     """
     rater_a_df = pd.read_csv(rater_a_csv, index_col=index_col)
     rater_b_df = pd.read_csv(rater_b_csv, index_col=index_col)
+    rater_a_count = len(rater_a_df)
+    rater_b_count = len(rater_b_df)
+    if verbose:
+        print(f'Rater a had {rater_a_df.isna().sum().sum()} missing values of {rater_a_count}')
+        print(f'Rater b had {rater_b_df.isna().sum().sum()} missing values of {rater_b_count}')
+
+    # drop any rows with non-matching indices
+    a_indices = set(rater_a_df.index.tolist())
+    b_indices = set(rater_b_df.index.tolist())
+    all_indices = a_indices.union(b_indices)
+    intersection_indices = a_indices.intersection(b_indices)
+    a_difference_indices = a_indices.difference(b_indices)
+    b_difference_indices = b_indices.difference(a_indices)
+    difference_indices = a_difference_indices.union(b_difference_indices)
+    if verbose:
+        print(f'There were {len(difference_indices)} rows not shared between the two sources (difference)')
+        print(f'There were {len(intersection_indices)} rows shared between the two sources (intersection)')
+        print(f'There were {len(all_indices)} total rows between the two sources (union)')
+        print(f'In a not b: {a_difference_indices} ')
+        print(f'In b not a: {b_difference_indices} ')
+
+    rater_a_df = rater_a_df[rater_a_df.index.isin(intersection_indices)]
+    rater_b_df = rater_b_df[rater_b_df.index.isin(intersection_indices)]
+
+    # first fill any nas with 0s to make sure missing values are converted to False
+    rater_a_df.fillna(0, inplace=True)
+    rater_b_df.fillna(0, inplace=True)
+    rater_a_df = rater_a_df.astype(bool)
+    rater_b_df = rater_b_df.astype(bool)
+
     intersection_df = rater_a_df & rater_b_df
+    print(len(intersection_df))
     intersection_df['count'] = intersection_df.sum(axis=1)
     union_df = rater_a_df | rater_b_df
+    print(len(union_df))
     union_df['count'] = union_df.sum(axis=1)
     result = intersection_df['count']/union_df['count']
     result.to_csv(datafile, header=['jaccard'])
