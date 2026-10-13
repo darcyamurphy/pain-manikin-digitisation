@@ -259,10 +259,6 @@ def load_pairwise_distances(filename: str) -> dict[str, float]:
         pairwise_distances[g1] = float(dist)
     return pairwise_distances
 
-def load_pain_extents(filename: str) -> pd.DataFrame:
-    df = pd.read_csv(filename)
-    return df
-
 def create_regions_csv(regions: list[str], filename: str) -> bool:
     """
     Try to create file for regions csv file with specified regions as column headers.

@@ -8,6 +8,7 @@ from scipy import stats as st
 import cv2
 import numpy as np
 import pathlib
+import pingouin as pg
 
 def get_full_df(files: list[str]) -> pd.DataFrame:
     dfs = []
@@ -189,7 +190,6 @@ def convert_per_region_jaccard_to_avg(datafile: str, heatmap_file: str, region_p
             column_mean = df[column_header].mean()
             f.write(f'{region_path},{column_mean}\n')
 
-
 def calculate_jaccard_indexes_lowmem(files: dict, datafile: str, downscale: int=10, verbose: bool = True):
     """
     Calculate jaccard distance between matched pairs of files. Writes results to csv file in location specified
@@ -227,6 +227,49 @@ def calculate_jaccard_indexes_lowmem(files: dict, datafile: str, downscale: int=
             if verbose:
                 print(f'jaccard: {pairwise_distance}')
             # todo save debug image
+
+def calculate_jaccard_index_mask(files: dict, datafile: str, verbose: bool = True):
+    """
+    Calculate jaccard distance between matched pairs of files. Writes results to csv file in location specified
+    by datafile.
+    :param files: Dictionary with keys as file paths to rater a pixel maps and values as file paths to rater b
+    pixel maps.
+    :param datafile: The file path to save results to.
+    :param verbose: Whether to output progress to command line as files are processed
+    :return:
+    """
+    match_colour = 255
+    with open(datafile, 'w') as f:
+        f.write('filename,jaccard\n')
+        for k, v in files.items():
+            filename = os.path.basename(k)
+            if verbose:
+                print(f'processing: {filename}')
+
+            img_a = cv2.imread(k)
+            mask_a = cv2.inRange(img_a, match_colour, match_colour)
+            img_b = cv2.imread(v)
+            mask_b = cv2.inRange(img_b, match_colour, match_colour)
+
+            intersection = cv2.bitwise_and(img_a, mask_b)
+            intersection_size = cv2.countNonZero(intersection)
+
+            union = cv2.bitwise_or(img_a, img_b)
+            union_size = cv2.countNonZero(union)
+
+            if cv2.countNonZero(mask_a) == 0:
+                print(f'File {k} contains empty manikin.')
+                # todo record this in file
+                continue
+            elif  cv2.countNonZero(mask_b) == 0:
+                print(f'File {v} contains empty manikin.')
+                #todo record this in file
+                continue
+            else:
+                pairwise_distance = intersection_size/union_size
+                f.write(f'{filename},{pairwise_distance}\n')
+            if verbose:
+                print(f'jaccard: {pairwise_distance}')
 
 def calculate_jaccard_indexes(files_a: list[str], files_b: list[str], datafile: str, downscale: int = 10):
     """
@@ -270,6 +313,47 @@ def body_region_jaccard_index(rater_a_csv: str, rater_b_csv: str, datafile: str,
     :param index_col: The index column for both rater_a_df and rater_b_df
     :return:
     """
+
+    rater_a_df, rater_b_df = csvs_to_matching_dfs(rater_a_csv, rater_b_csv, verbose, index_col)
+    intersection_df = rater_a_df & rater_b_df
+    print(len(intersection_df))
+    intersection_df['count'] = intersection_df.sum(axis=1)
+    union_df = rater_a_df | rater_b_df
+    print(len(union_df))
+    union_df['count'] = union_df.sum(axis=1)
+    result = intersection_df['count']/union_df['count']
+    result.to_csv(datafile, header=['jaccard'])
+
+def body_region_counts(body_region_labels_csv: str, datafile: str, verbose: bool = True, index_col: str = 'filename'):
+    """
+    Calculate the proportion of pain drawings which have pain in each region
+    :param body_region_labels_csv:
+    :param datafile: The file path to save results to.
+    :param verbose: Whether to output progress to command line as files are processed
+    :param index_col: The index column for the source data file
+    :return:
+    """
+
+    df = pd.read_csv(body_region_labels_csv, index_col=index_col)
+    df.fillna(0, inplace=True)
+    df = df.astype(bool)
+    result = df.sum(axis=0).to_frame() / len(df)
+    print(result)
+    result.to_csv(datafile)
+
+def csvs_to_matching_dfs(rater_a_csv: str, rater_b_csv: str, verbose: bool = True,
+                            index_col: str = 'filename', convert_type: bool = True):
+    """
+    Takes two csv files from separate raters and drops any rows that are only in one of the csvs.
+    Returns the csv data as dataframes with matching indexs.
+    Makes column types into bool and treats missing values as False.
+    :param rater_a_csv:
+    :param rater_b_csv:
+    :param verbose: Whether to output progress to command line as files are processed
+    :param index_col: The index column for both rater_a_df and rater_b_df
+    :param convert_type: Set to False to not change column types or replace nas
+    :return:
+    """
     rater_a_df = pd.read_csv(rater_a_csv, index_col=index_col)
     rater_b_df = pd.read_csv(rater_b_csv, index_col=index_col)
     rater_a_count = len(rater_a_df)
@@ -296,20 +380,43 @@ def body_region_jaccard_index(rater_a_csv: str, rater_b_csv: str, datafile: str,
     rater_a_df = rater_a_df[rater_a_df.index.isin(intersection_indices)]
     rater_b_df = rater_b_df[rater_b_df.index.isin(intersection_indices)]
 
-    # first fill any nas with 0s to make sure missing values are converted to False
-    rater_a_df.fillna(0, inplace=True)
-    rater_b_df.fillna(0, inplace=True)
-    rater_a_df = rater_a_df.astype(bool)
-    rater_b_df = rater_b_df.astype(bool)
+    if convert_type:
+        # first fill any nas with 0s to make sure missing values are converted to False
+        rater_a_df.fillna(0, inplace=True)
+        rater_b_df.fillna(0, inplace=True)
+        rater_a_df = rater_a_df.astype(bool)
+        rater_b_df = rater_b_df.astype(bool)
 
-    intersection_df = rater_a_df & rater_b_df
-    print(len(intersection_df))
-    intersection_df['count'] = intersection_df.sum(axis=1)
-    union_df = rater_a_df | rater_b_df
-    print(len(union_df))
-    union_df['count'] = union_df.sum(axis=1)
-    result = intersection_df['count']/union_df['count']
-    result.to_csv(datafile, header=['jaccard'])
+    return rater_a_df, rater_b_df
+
+def sensitivity_specificity(rater_a_csv: str, rater_b_csv: str, datafile: str, verbose: bool = True,
+                             index_col: str = 'filename'):
+    rater_a_df, rater_b_df = csvs_to_matching_dfs(rater_a_csv, rater_b_csv, verbose, index_col)
+
+    # true positives are true in a and b
+    tp_df = rater_a_df & rater_b_df
+
+    # true negatives are false in a and b
+    tn_df = ~rater_a_df & ~rater_b_df
+
+    # false positives are false in a and true in b
+    fp_df = ~rater_a_df & rater_b_df
+
+    # false negatives are true in a and false in b
+    fn_df = rater_a_df & ~rater_b_df
+
+    # now get the count from each of these
+    # make one dataframe with tp, tn, fp and fn columns
+    tp_df['tp_count'] = tp_df.sum(axis=1)
+
+    result = tp_df[['tp_count']].copy()
+    result['tn_count'] = tn_df.sum(axis=1)
+    result['fp_count'] = fp_df.sum(axis=1)
+    result['fn_count'] = fn_df.sum(axis=1)
+
+    result['sensitivity'] = result['tp_count'] / (result['tp_count'] + result['fn_count'])
+    result['specificity'] = result['tn_count'] / (result['tn_count'] + result['fp_count'])
+    result.to_csv(datafile)
 
 def get_file_summary_stats(datafile: str, column: str, index_column: str = 'filename'):
     """
@@ -323,10 +430,16 @@ def get_file_summary_stats(datafile: str, column: str, index_column: str = 'file
 
     std_dev = df[column].std()
     mean = df[column].mean()
-    print(f'{column} mean : {round(mean, 4)}. standard deviation: {round(std_dev, 4)}.'
-          f' range: ({round(df[column].min(), 4)} - {round(df[column].max(), 4)})')
+    n = len(df)
+    std_err = std_dev / math.sqrt(n)
+    ci = std_err * 1.96
+    print(f'{column} mean : {round(mean, 4)}. \n'
+          f'    standard deviation: {round(std_dev, 4)}. \n'
+          f'    range: {round(df[column].min(), 4)} - {round(df[column].max(), 4)}\n'
+          f'    standard error:  {round(std_err, 4)}\n'
+          f'    95% CI: {round(mean - ci, 4)} - {round(mean + ci, 4)}\n')
 
-def get_pain_extents(files: list[str], template_file: str, datafile: str):
+def get_pixel_pain_extents(files: list[str], template_file: str, datafile: str):
     # pain extent is % of available area so need digitised area and template
     # then just divide num pixels marked by total available pixels
     template_pixels, template_size = data_io.get_pixels(template_file)
@@ -346,11 +459,118 @@ def get_pain_extents(files: list[str], template_file: str, datafile: str):
             print(f'file {filename}, total pixels: {marked_pixels} ({percent:.2f}%)')
             df.write(f'{filename},{marked_pixels},{percent:.2f}\n')
 
-def compare_pain_extents(datafile_a: str, datafile_b: str):
-    pain_extents_a = data_io.load_pain_extents(datafile_a)[['filename', 'pixels']]
-    pain_extents_b = data_io.load_pain_extents(datafile_b)[['filename', 'pixels']]
-    result = pd.merge(pain_extents_a, pain_extents_b, on='filename', suffixes=('_a', '_b')).rename(columns={'pixels_a':'a', 'pixels_b': 'b'})
-    bland_altman_plot(result)
+def get_body_region_pain_extent(region_annotations: str, region_pixel_maps: list[str], template_file: str,
+                                datafile: str, index_col: str='filename'):
+    """
+    Calculate body region based pain extent for the body region annotations in the provided csv file.
+    :param region_annotations: The csv file with the body region annotations as columns. The column names should match
+    the file names in the region pixel maps list
+    :param region_pixel_maps: The pixel maps defining each pain region
+    :param template_file: The template file for the full manikin area
+    :param datafile: The file path to save results to.
+    :param index_col: The name of the column with participant ID or other identifier
+    :return:
+    """
+    df = pd.read_csv(region_annotations).fillna(0)
+    df = df.rename(columns={index_col: 'filename'})
+
+    region_columns = []
+    for s in region_pixel_maps:
+        region_image = cv2.imread(s)
+        region_mask = cv2.inRange(region_image, (0, 0, 255), (0, 0, 255))
+        region_pixel_count = np.count_nonzero(region_mask)
+        column_name = pathlib.Path(s).stem
+        region_columns.append(column_name)
+
+        # replace true values with pixel count and false values with 0
+        df[column_name] = df[column_name].astype(int).replace({1: region_pixel_count})
+
+    df['pixels'] = df[region_columns].sum(axis=1)
+
+    template_pixels = cv2.imread(template_file)
+    template_mask = cv2.inRange(template_pixels, (0, 0, 255), (0, 0, 255))
+    available_pixels = np.count_nonzero(template_mask)
+
+    df['percent'] = (df['pixels'] / available_pixels) * 100
+    df.to_csv(datafile, columns=['filename', 'pixels', 'percent'], index=False)
+
+def per_region_icc_csv(rater_a_csv: str, rater_b_csv: str, datafile: str,
+                           verbose: bool=True, index_col: str = 'filename', heatmap_file: str | None = None,
+                       region_pixel_maps: list[str] | None = None):
+    """
+    Calculate icc between raters on matched pairs of files based on which predefined body regions each
+    rater marked as containing pain. Writes results to csv file in location specified by datafile.
+    :param rater_a_csv:
+    :param rater_b_csv:
+    :param datafile: The file path to save results to.
+    :param verbose: Whether to output progress to command line as files are processed
+    :param index_col: The index column for both rater_a_df and rater_b_df
+    :return:
+    """
+    rater_a_df, rater_b_df = csvs_to_matching_dfs(rater_a_csv, rater_b_csv, verbose, index_col)
+    columns = rater_a_df.columns.values.tolist()
+
+    rater_a_df['filename1'] = rater_a_df.index
+    rater_b_df['filename1'] = rater_b_df.index
+    rater_a_df['rater'] = 'a'
+    rater_b_df['rater'] = 'b'
+    combined = pd.concat([rater_a_df, rater_b_df])
+    print(combined)
+    print(rater_a_df['9'])
+    print(rater_b_df['9'])
+    # calculate ICC for each column
+    rows = []
+    for c in columns:
+        print(f'column: {c}')
+        combined[c] = combined[c].astype(int)
+        icc = pg.intraclass_corr(combined, targets='filename1', raters='rater', ratings=c)
+        type_filter = icc['Type'] == 'ICC(A,1)'
+        row = icc[type_filter].iloc[0]
+        rows.append([c, row['ICC'], row['CI95']])
+
+
+    result = pd.DataFrame(rows, columns=['filename', 'ICC', 'CI95'])
+    print(result)
+    result.to_csv(datafile, index=False)
+
+    if heatmap_file is not None:
+        with open(heatmap_file, 'w') as f:
+            f.write('path,value\n')
+            for c in region_pixel_maps:
+                region = pathlib.Path(c).stem
+                value = result[result['filename']==region].iloc[0]['ICC']
+                f.write(f'{c},{value}\n')
+    return result
+
+
+def compare_pain_extents(datafile_a: str, datafile_b: str, rater_a: str, rater_b: str):
+    """
+    Compare the pain extents in datafile a with the gold standard in datafile b.
+    :param datafile_a:
+    :param datafile_b:
+    :param rater_a: Label to use for rater a
+    :param rater_b: Label to use for rater b
+    :return:
+    """
+
+    pain_extents_a, pain_extents_b = csvs_to_matching_dfs(datafile_a, datafile_b, False, 'filename', False)
+    # pain_extents_a = data_io.load_pain_extents(datafile_a)[['filename', 'percent']]
+    # pain_extents_b = data_io.load_pain_extents(datafile_b)[['filename', 'percent']]
+    pain_extents_a['rater'] = 'a'
+    pain_extents_b['rater'] = 'b'
+    pain_extents_a['filename1'] = pain_extents_a.index
+    pain_extents_b['filename1'] = pain_extents_b.index
+    # targets is name of column with subjects or items being measured
+    # raters is name of column containing raters, sessions or conditions
+    # ratings is name of column containing numerical scores or values
+    result = pd.concat([pain_extents_a, pain_extents_b])
+    icc = pg.intraclass_corr(result, targets='filename1', raters='rater', ratings='percent')
+    print(icc)
+
+    # ba_result = pd.merge(pain_extents_a, pain_extents_b, on='filename1', suffixes=('_a', '_b')).rename(
+    #     columns={'percent_a': rater_a, 'percent_b': rater_b})
+    #pg.plot_blandaltman(x=ba_result[rater_a], y=ba_result[rater_b])
+    #plt.show()
 
 def does_pixel_match_surface(gt_img, x: int, y: int, tau: int, match_colour: int) -> int:
     """
@@ -500,14 +720,16 @@ def calculate_normalised_surface_distances(files: dict, datafile: str, tau: int,
 def bland_altman_plot(df: pd.DataFrame):
     """
     Takes a dataframe with columns a and b, where each column is an independent measurement of the same value.
+    Column b should be the gold standard
     :param df:
     :return:
     """
 
-    df['diff'] = abs(df['a'] - df['b'])
+    df['diff'] = df['a'] - df['b']
     df['avg'] = (df['a'] + df['b'])/2
     mean_diff = df['diff'].mean()
     standard_deviation = df['diff'].std()
+
     # use a z value of 1.960 for a confidence interval of 95%
     z = 1.960
     n = len(df)
@@ -519,9 +741,9 @@ def bland_altman_plot(df: pd.DataFrame):
     loas = st.norm.interval(agreement, mean_diff, standard_deviation)
     print(f'mean: {round(mean_diff, 4)}, std: {round(standard_deviation, 4)}, 95% CI: ({round(ci_lower, 4)}-{round(ci_upper, 4)})')
     print(f'Limits of agreement (95%): {round(loas[0], 4)}, {round(loas[1], 4)}')
-    print(df)
     ax = sns.scatterplot(df, x='avg', y='diff')
     plt.axhline(y=mean_diff, color='r', linestyle='-')
     plt.axhline(y=ci_lower, color='b', linestyle='--')
     plt.axhline(y=ci_upper, color='b', linestyle='--')
+    plt.grid()
     plt.show()

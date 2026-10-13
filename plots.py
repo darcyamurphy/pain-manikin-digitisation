@@ -40,7 +40,8 @@ def body_region_heatmap(region_file: str):
     :return:
     """
     df = pd.read_csv(region_file)
-    palette = sns.color_palette("crest", as_cmap=True)
+    #palette = sns.color_palette("crest", as_cmap=True)
+    palette = sns.light_palette("red", as_cmap=True)
     # make blank image of correct dimensions
     example_file = df['path'].iloc[0]
     example_img = cv2.imread(example_file)
@@ -53,6 +54,8 @@ def body_region_heatmap(region_file: str):
         row = df.iloc[i]
         pixel_map = cv2.imread(row['path'])
         value = float(row['value'])
+        if value < 0:
+            value = 0
         # convert rgb % values from the seaborn colour map into bgr absolute values for opencv
         c = palette(value)
         colour = [c[2]*255, c[1]*255, c[0]*255]

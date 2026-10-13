@@ -93,10 +93,11 @@ def realign_image(output_dir: str, temp_dir: str, alignment_template: str,
 
 def pixel_mask(img_dir: str, masked_dir: str, pixel_template: str, background_colour: tuple[int, int, int]):
     """
-
-    :param img_dir:
-    :param masked_dir:
-    :param pixel_template:
+    Uses pixel_template to mask any pixels in the images in img_dir which are in the background_colour region of the
+    pixel_template. Saves masked_images to masked_dir.
+    :param img_dir: directory to get files to mask from
+    :param masked_dir: directory to save masked files to
+    :param pixel_template: pixel mask to crop to
     :param background_colour: RGB background colour
     :return:
     """
@@ -177,21 +178,7 @@ def get_convex_hulls(input_img: str, low_threshold: int, high_threshold: int, ou
     image_processing.get_convex_hull(input_img, low_threshold, high_threshold, output_dir, clustering_threshold,
                                      source_image, method, debug, debug_dir, visualise, vis_dir, pixel_mask_template)
 
-def run_jaccard(jaccard_dir_a: str, jaccard_dir_b: str, log_file: str):
-    files_a = data_io.get_source_files(jaccard_dir_a, '.png')
-    files_b = []
-    for f in files_a:
-        files_b.append(data_io.get_matched_file(f, jaccard_dir_b))
-    metrics.calculate_jaccard_indexes(files_a, files_b, log_file)
 
-def analyse_jaccard(data_file: str):
-    metrics.get_file_summary_stats(data_file, 'jaccard')
-
-def run_pain_extents(files: list[str], template_file: str, log_file: str):
-    metrics.get_pain_extents(files, template_file, log_file)
-
-def compare_pain_extents(datafile_a: str, datafile_b: str):
-    metrics.compare_pain_extents(datafile_a, datafile_b)
 
 def preprocessing_demo(template_file: str, background_lower: tuple[int, int, int],
                        background_upper: tuple[int, int, int], erosion_size: int):
@@ -248,7 +235,3 @@ def preprocess_dir(input_dir: str, output_dir: str, template_file: str,
         print(f'{output_file}, {success}')
     end = time.time()
     print(f'Time: {end-start}')
-
-def generate_heatmap(files: list[str], output_path: str, override_num_images: int=-1):
-    avg = image_processing.pixel_average_from_list(files, override_num_images)
-    avg.save(output_path)

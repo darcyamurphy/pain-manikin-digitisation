@@ -82,24 +82,6 @@ def get_sections_log(config: configparser.ConfigParser) -> str:
 def get_min_pixels_per_section(config: configparser.ConfigParser) -> int:
     return int(config['ADVANCED']['MinPixelsPerSection'])
 
-def get_jaccard_dirs(config: configparser.ConfigParser) -> tuple[str, str]:
-    return config['JACCARD']['DirA'], config['JACCARD']['DirB']
-
-def get_jaccard_log(config: configparser.ConfigParser) -> str:
-    return config['JACCARD']['LogFile']
-
-def get_extent_dir(config: configparser.ConfigParser) -> str:
-    return config['EXTENT']['Dir']
-
-def get_extent_template(config: configparser.ConfigParser) -> str:
-    return config['EXTENT']['Template']
-
-def get_extent_logfile(config: configparser.ConfigParser) -> str:
-    return config['EXTENT']['LogFile']
-
-def get_extent_compare_files(config: configparser.ConfigParser) -> tuple[str, str]:
-    return config['EXTENT']['CompareA'], config['EXTENT']['CompareB']
-
 def get_background_colours(config: configparser.ConfigParser) ->\
         tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]:
     """
@@ -162,19 +144,10 @@ def run():
                         help='Use filenames from FilenameMap to rename source files while aligning.')
     parser.add_argument('-e', '--realign', default=None,
                         help='Realign specified image to template. Assumes image is mostly just manikin area.')
-    parser.add_argument('-s', '--sections', action='store_true',
-                        help='Compare images in ImgDir to sections in SectionsDir')
+    parser.add_argument('--regions', action='store_true',
+                        help='Annotate files in ImgDir using the specified predefined body regions in SectionsDir')
     parser.add_argument('-u', '--hull', action='store_true',
                         help='Show convex hull for images in CleanedDir')
-    parser.add_argument('-j', '--jaccard', action='store_true',
-                        help='Calculate jaccard index between files in directory JaccardA and JaccardB. All files in'
-                             'directory A must have a file with matching name in directory B.')
-    parser.add_argument('--jaccard_metrics', action='store_true',
-                        help='Output stats on jaccard metrics in Jaccard LogFile')
-    parser.add_argument('-x', '--extent', action='store_true',
-                        help='Calculate pain extents of files in Extent')
-    parser.add_argument('--cextent', action='store_true',
-                        help='Compare pain extents of CompareA and CompareB in Extent')
     parser.add_argument('--preprodemo', action='store_true',
                         help='Demonstrate preprocessing for troubleshooting purposes. White lines will be blanked out.')
     parser.add_argument('-p', '--preprocessing', action='store_true',
@@ -182,13 +155,8 @@ def run():
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('-v', '--visualise', action='store_true',
                         help='Save visualisations of convex hulls.')
-    parser.add_argument('--heatmap',
-                        help='Create heatmap of files in PainRegionsDir and save to provided filename')
     parser.add_argument('--file_list',
                         help='Specify a file with a list of source files to override searching default input dir')
-    parser.add_argument('--heatmap_num_override',
-                        help='Override the actual number of images when weighting images for heatmap. Can be used'
-                             'to harmonise heatmaps when one has less images than the other.')
     parser.add_argument('--extension',
                         help= 'Override default extension for directory search')
     parser.add_argument('--config', help='Specify non-default config file', default='resources/config')
@@ -277,8 +245,8 @@ def run():
 
         main.preprocess_dir(img_dir, output_dir, template_img, lower, upper, replacement, erosion, alpha, beta)
 
-    if args.sections:
-        print('Finding sections')
+    if args.regions:
+        print('Annotating predefined regions')
         masked_dir = get_masked_dir(config, True)
         sections_dir = get_sections_dir(config)
         output_file = get_sections_log(config)
@@ -286,7 +254,7 @@ def run():
         low, high = get_canny_thresholds(config)
         extension = get_extension(args.extension, '.png')
         images = get_files_from_dir_or_list(args.file_list, masked_dir, masked_dir, extension)
-        print(f'Finding sections for {len(images)} images')
+        print(f'Finding regions for {len(images)} images')
         main.find_marked_regions_in_images(images, sections_dir, output_file, min_pixels, low, high, args.debug,
                                            args.resume_index)
 
@@ -314,40 +282,6 @@ def run():
                                   args.visualise, vis_dir, pixel_mask)
         end = time.time()
         print(f'Time: {end-start}s')
-
-    if args.jaccard:
-        # todo add option to load file list from file rather than getting all files in dir
-        jaccard_a, jaccard_b = get_jaccard_dirs(config)
-        jaccard_log = get_jaccard_log(config)
-        main.run_jaccard(jaccard_a, jaccard_b, jaccard_log)
-
-    if args.jaccard_metrics:
-        main.analyse_jaccard(get_jaccard_log(config))
-
-    if args.extent:
-        extent_dir = get_extent_dir(config)
-        extension = get_extension(args.extension, '.png')
-        files = get_files_from_dir_or_list(args.file_list, extent_dir, extent_dir, extension)
-
-        extent_log = get_extent_logfile(config)
-        extent_template = get_extent_template(config)
-        main.run_pain_extents(files, extent_template, extent_log)
-
-    if args.cextent:
-        datafile_a, datafile_b = get_extent_compare_files(config)
-        main.compare_pain_extents(datafile_a, datafile_b)
-
-    if args.heatmap is not None:
-        if args.heatmap_num_override is not None:
-            heatmap_num = int(args.heatmap_num_override)
-        else:
-            heatmap_num = -1
-
-        input_dir = get_pain_regions_dir(config, True)
-        extension = get_extension(args.extension, '.png')
-        files = get_files_from_dir_or_list(args.file_list, input_dir, input_dir, extension)
-
-        main.generate_heatmap(files, args.heatmap, heatmap_num)
 
 if __name__ == '__main__':
     run()
