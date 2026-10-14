@@ -1,4 +1,7 @@
 # polymyalgia-analysis
+If you use this software in research please cite the paper:
+D. Murphy, S. N. van der Veer, W. Dixon, S. L. Mackie, S. Muller and D. Wong, "Development of an Automated Pipeline for the Digitisation of Paper Pain Drawings," 2026 IEEE 39th International Symposium on Computer-Based Medical Systems (CBMS), Limassol, Cyprus, 2026, pp. 341-346, doi: 10.1109/CBMS69103.2026.00078.
+
 This software takes scanned pdfs of paper pain drawings, automatically crops and aligns them, and can create a csv
 file listing the predefined body regions that contain marks, as well as pixel maps of the pain locations. The pixel
 maps can be used to calculate the pain area and generate heatmaps of average pain location across a group of manikins.
